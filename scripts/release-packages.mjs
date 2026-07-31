@@ -182,7 +182,12 @@ async function validatePackage(root, definition, lockfile) {
   await stat(join(packageDirectory, "LICENSE"));
 
   const lockEntry = lockfile.packages?.[`packages/${definition.directory}`];
-  if (lockEntry?.version !== manifest.version) {
+  if (lockEntry === undefined || typeof lockEntry !== "object") {
+    fail(
+      `${definition.name} is missing from package-lock.json workspace inventory`,
+    );
+  }
+  if (lockEntry.version !== manifest.version) {
     fail(
       `${definition.name} version is not synchronized with package-lock.json`,
     );
