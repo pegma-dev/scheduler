@@ -102,12 +102,12 @@ events, overlap, and a complete checkpoint cycle against persistent local D1.
 **Exit criterion:** both independent consumers compile against exact package
 pins and their integration tests prove real scheduled work.
 
-**Phase 4 evidence:** `fixtures/ops-hub`, `fixtures/support-desk`, and
-`fixtures/azure-functions` pin workspace `@pegma/scheduler@0.0.0` (and the
-Cloudflare adapter for Ops Hub) and prove scheduled work with independent
-task state. Ops Hub remains bootstrap-only as a host application; the fixture
-is the integration bar until that host lands Worker phases. Support Desk
-domain packages stay outside this repository; the fixture mirrors
+**Phase 4 evidence:** workspace packages under `fixtures/*` each declare exact
+dependency pins in their own `package.json` (`@pegma/scheduler@0.0.0`; Ops Hub
+also pins `@pegma/scheduler-cloudflare@0.0.0`) and prove scheduled work with
+independent task state. Ops Hub remains bootstrap-only as a host application;
+the fixture is the integration bar until that host lands Worker phases.
+Support Desk domain packages stay outside this repository; the fixture mirrors
 `HOST_COMPOSITION.md` loop names without inventing per-bucket tasks.
 
 ### Phase 5 — first advertised release

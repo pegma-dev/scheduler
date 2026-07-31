@@ -10,7 +10,8 @@
     "node": ">=22"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "fixtures/*"
   ],
   "scripts": {
     "build": "tsc -b",

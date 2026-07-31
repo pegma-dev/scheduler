@@ -1,7 +1,8 @@
 # Consumer fixtures
 
-Independent host compositions that pin the local workspace packages
-(`@pegma/scheduler@0.0.0` and `@pegma/scheduler-cloudflare@0.0.0`) and prove
+Independent host compositions that declare exact dependency pins in each
+fixture `package.json` (`@pegma/scheduler@0.0.0`, and for Ops Hub also
+`@pegma/scheduler-cloudflare@0.0.0`) against the monorepo workspaces and prove
 real scheduled work before any npm publish.
 
 These fixtures are the Phase 4 integration bar described in

@@ -1,0 +1,12 @@
+{
+  "name": "@pegma/fixture-support-desk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Support Desk-shaped consumer fixture for @pegma/scheduler.",
+  "type": "module",
+  "dependencies": {
+    "@pegma/scheduler": "0.0.0",
+    "@pegma/spine": "0.1.2",
+    "@pegma/storage-core": "0.4.0"
+  }
+}
