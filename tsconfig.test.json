@@ -11,7 +11,9 @@
   "include": [
     "packages/*/src/**/*.test.ts",
     "fixtures/**/*.ts",
+    "tests/**/*.ts",
     "test/**/*.ts",
+    "scripts/**/*.mjs",
     "vitest.config.ts",
     "vitest.d1.config.ts"
   ],

@@ -1,6 +1,6 @@
 {
   "name": "@pegma/scheduler-cloudflare",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Cloudflare Cron Trigger dispatch for @pegma/scheduler.",
   "license": "MIT",
   "type": "module",
@@ -29,7 +29,7 @@
     "directory": "packages/scheduler-cloudflare"
   },
   "dependencies": {
-    "@pegma/scheduler": "0.0.0"
+    "@pegma/scheduler": "0.1.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

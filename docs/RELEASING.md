@@ -1,29 +1,80 @@
 # Release operations
 
-Scheduler is intentionally not releasable in Phase 1. There is no publish
-workflow or release script yet, and `0.0.0` is not an advertised version.
+There are exactly two publication paths:
 
-Before adding release automation:
+1. a one-time manual bootstrap of `@pegma/scheduler@0.0.0` and
+   `@pegma/scheduler-cloudflare@0.0.0` (already completed), needed before npm had
+   package names on which trusted publishing could be configured; and
+2. every advertised release, beginning with `0.1.0`, through the
+   environment-protected GitHub OIDC workflow in
+   [`.github/workflows/publish.yml`](../.github/workflows/publish.yml).
 
-1. Complete the Phase 2 runner and adversarial tests.
-2. Complete real Azurite and D1 verification.
-3. Complete Ops Hub and Support Desk consumer fixtures
-   (`fixtures/ops-hub`, `fixtures/support-desk`, plus Azure reference under
-   `fixtures/azure-functions`).
-4. Complete a focused security review.
-5. Refresh exact Pegma dependency pins from `https://pegma.dev/catalog.json`.
+The normal release lane rejects the entire `0.0.x` range. Bootstrap artifacts
+remain non-advertised.
 
-The eventual lane must match current Pegma release rules:
+## Common source requirements
 
-- protected `main` branch;
-- protected signed annotated `vX.Y.Z` tag already on `origin/main`;
-- `gh release create vX.Y.Z --verify-tag`;
-- unprivileged gate and exact tarball preparation;
-- minimal publish job with npm trusted-publisher OIDC only;
-- provenance enabled and no token fallback;
-- package-local README and LICENSE;
-- `prepack` build and test files excluded from `dist`.
+Every advertised artifact comes from a protected, signed, annotated `vX.Y.Z`
+tag whose commit is already contained in `origin/main`. Configure:
 
-A first package-name bootstrap, if npm still requires it, must be isolated from
-the normal release lane and must never make `0.0.x` the advertised supported
-release.
+- the protected `npm-publish` GitHub environment;
+- repository variable `RELEASE_ALLOWED_SIGNERS` with reviewed SSH allowed-signers
+  entries; and
+- tag protection against moving or deleting `v*`.
+
+npm trusted publishers for both packages must identify:
+
+- organization `pegma-dev`
+- repository `scheduler`
+- workflow filename `publish.yml`
+- environment `npm-publish`
+- allowed action `npm publish`
+
+Run `npm run format:check`, `npm run check`, and `npm test` on Node 22 and 24
+before tagging. Never unpublish and reuse a version.
+
+## Normal OIDC releases (`0.1.0` and later)
+
+1. Land a reviewed PR that sets both public packages (and lockfile / fixture
+   pins) to the same stable version, and updates release notes.
+2. After merge to `main`, create a **protected signed annotated** tag:
+
+   ```sh
+   git checkout main
+   git pull --ff-only origin main
+   git tag -s v0.1.0 -m "v0.1.0"
+   git push origin v0.1.0
+   ```
+
+3. Create a GitHub release from that tag (this starts the publish workflow):
+
+   ```sh
+   gh release create v0.1.0 --verify-tag --title "v0.1.0" --notes-file docs/RELEASE_NOTES.md
+   ```
+
+4. The workflow:
+   - verifies the signed tag against `RELEASE_ALLOWED_SIGNERS`;
+   - runs the full gate;
+   - packs both packages with `npm run release:pack`;
+   - publishes exact tarballs with provenance via OIDC (`npm run release:publish`).
+
+Local helpers (never substitute for the OIDC lane for advertised releases):
+
+```sh
+npm run release:check
+npm run release:pack -- -- --output .release
+# release:publish is restricted to the GitHub release workflow
+```
+
+## After `0.1.0` lands
+
+Confirm:
+
+```sh
+npm dist-tag ls @pegma/scheduler
+npm dist-tag ls @pegma/scheduler-cloudflare
+npm view @pegma/scheduler version
+```
+
+`latest` should be `0.1.0` for both packages. Unqualified install is then safe
+to advertise.

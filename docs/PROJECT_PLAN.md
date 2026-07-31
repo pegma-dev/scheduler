@@ -2,15 +2,17 @@
 
 ## Status
 
-**Stage:** Phases 0–4 are complete in source (contracts, durable runner,
-Cloudflare adapter, and independent consumer fixtures). No package is published
-or production-usable.
+**Stage:** Phases 0–4 are complete in source. Phase 5 release automation and
+the first advertised `0.1.0` package versions are prepared for OIDC publish.
+The package-name bootstrap (`0.0.0` under tag `bootstrap`) is complete; trusted
+publishers are configured. Advertised `0.1.0` is published only from a signed
+`v0.1.0` tag through `.github/workflows/publish.yml`.
 
 **Trigger:** Ops Hub and Support Desk independently need the same explicit,
 durable coordination boundary for recurring work.
 
-**Initial package:** `@pegma/scheduler`, currently `0.0.0` as an unpublished
-development placeholder.
+**Initial package:** `@pegma/scheduler` and `@pegma/scheduler-cloudflare`,
+first advertised release `0.1.0`.
 
 **Current exact dependencies:** `@pegma/spine@0.1.2` and
 `@pegma/storage-core@0.4.0`, refreshed from the Pegma catalog on 2026-07-31.
@@ -110,13 +112,20 @@ the fixture is the integration bar until that host lands Worker phases.
 Support Desk domain packages stay outside this repository; the fixture mirrors
 `HOST_COMPOSITION.md` loop names without inventing per-bucket tasks.
 
-### Phase 5 — first advertised release
+### Phase 5 — first advertised release (automation complete; tag/publish handoff)
 
 - Complete focused security review and package inventory verification.
 - Add signed-tag/OIDC release automation following current Pegma practice.
 - Perform the one-time package-name bootstrap if npm requires it.
 - Publish `0.1.0` only from a protected signed annotated tag.
 - Add the component and a green synthetic recipe to `pegma.dev`.
+
+**Automation evidence:** `.github/workflows/publish.yml`,
+`scripts/release-packages.mjs`, `npm run release:check|pack|publish`, package
+versions `0.1.0`, and `docs/RELEASE_NOTES.md`. Activation remains: signed
+`v0.1.0` tag + `gh release create` on `main`, then confirm `latest=0.1.0`.
+The `pegma.dev` recipe is a separate host-repo follow-up after registry
+visibility.
 
 ## Non-goals
 

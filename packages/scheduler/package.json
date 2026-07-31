@@ -1,6 +1,6 @@
 {
   "name": "@pegma/scheduler",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Durable coordination for host-triggered recurring Pegma work.",
   "license": "MIT",
   "type": "module",
