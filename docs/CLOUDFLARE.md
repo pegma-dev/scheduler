@@ -64,8 +64,10 @@ survive restarts. Do not treat Memory Store as durability evidence.
 2. Adapter unit tests construct scheduled controller inputs without a network.
 3. Cloudflare Vitest pool tests run against real local D1
    (`packages/scheduler-cloudflare/src/fixture.d1.test.ts`).
-4. A green Ops Hub fixture (Phase 4) proves Docker volume and repeated trigger
-   behavior.
+4. The Ops Hub-shaped fixture under `fixtures/ops-hub` proves Cron route
+   composition and scheduled work against Memory Store. Docker volume
+   durability and repeated `/__scheduled` triggers remain host/Worker concerns
+   once Ops Hub is more than bootstrap.
 
 Run the D1 suite alone:
 

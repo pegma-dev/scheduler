@@ -69,5 +69,7 @@ Both consumers need:
 - manual/local invocation;
 - safe operational telemetry.
 
-This closes requirements Phase 0. It does not claim the integration phase is
-complete: both consumer fixtures must still compile and run before release.
+This closes requirements Phase 0. Phase 4 consumer fixtures under `fixtures/`
+compile against exact workspace package pins and prove real scheduled work for
+the Ops Hub and Support Desk task shapes. Full host applications still pin the
+first advertised release after Phase 5 publishes.

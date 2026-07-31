@@ -10,10 +10,11 @@ writes.
 
 ## Status
 
-Phase 3 is implemented in source. The repository contains
+Phase 4 is implemented in source. The repository contains
 `@pegma/scheduler` (contracts, durable runner), `@pegma/scheduler-cloudflare`
-(explicit Cron Trigger dispatch), Memory Store / Azurite / local D1 tests, and
-design documentation. No package has been published.
+(explicit Cron Trigger dispatch), independent consumer fixtures under
+`fixtures/`, Memory Store / Azurite / local D1 tests, and design documentation.
+No package has been published.
 
 The first consumers are:
 
@@ -25,8 +26,8 @@ The first consumers are:
 
 | Package                       | Status         | Responsibility                              |
 | ----------------------------- | -------------- | ------------------------------------------- |
-| `@pegma/scheduler`            | Phase 3 source | Contracts, durable task state, and runner   |
-| `@pegma/scheduler-cloudflare` | Phase 3 source | Thin explicit Cron Trigger dispatch adapter |
+| `@pegma/scheduler`            | Phase 4 source | Contracts, durable task state, and runner   |
+| `@pegma/scheduler-cloudflare` | Phase 4 source | Thin explicit Cron Trigger dispatch adapter |
 
 ## Development
 
@@ -39,5 +40,8 @@ npm test
 npm run test:node
 npm run test:d1
 ```
+
+Consumer fixtures (Ops Hub, Support Desk, Azure Functions shapes) live under
+[fixtures/](fixtures/) and run as part of `npm test`.
 
 See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the delivery sequence.
