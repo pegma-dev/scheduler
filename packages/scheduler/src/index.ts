@@ -612,10 +612,12 @@ export function createScheduler<
     "leaseMilliseconds",
     MAX_LEASE_MILLISECONDS,
   );
-  const defaultHandlerTimeout = Math.max(
-    1,
-    leaseMilliseconds - DEFAULT_HANDLER_TIMEOUT_HEADROOM_MILLISECONDS,
-  );
+  // Long leases keep one second of completion headroom. Short leases use the
+  // full claim budget because a fixed 1s headroom would collapse them to 1ms.
+  const defaultHandlerTimeout =
+    leaseMilliseconds > DEFAULT_HANDLER_TIMEOUT_HEADROOM_MILLISECONDS
+      ? leaseMilliseconds - DEFAULT_HANDLER_TIMEOUT_HEADROOM_MILLISECONDS
+      : leaseMilliseconds;
   const handlerTimeoutMilliseconds = requirePositiveInteger(
     options.handlerTimeoutMilliseconds ?? defaultHandlerTimeout,
     "handlerTimeoutMilliseconds",
@@ -906,6 +908,14 @@ export function createScheduler<
     }
     const leaseExpiresEpoch = started.epoch + leaseMilliseconds;
     const remainingLeaseMilliseconds = leaseExpiresEpoch - afterClaim.epoch;
+    // Prefer keeping completion headroom after claim latency. When the
+    // remaining budget is already shorter than the default headroom, allow the
+    // full remainder rather than inventing a 1ms handler window.
+    const maxHandlerBudgetMilliseconds =
+      remainingLeaseMilliseconds > DEFAULT_HANDLER_TIMEOUT_HEADROOM_MILLISECONDS
+        ? remainingLeaseMilliseconds -
+          DEFAULT_HANDLER_TIMEOUT_HEADROOM_MILLISECONDS
+        : remainingLeaseMilliseconds;
 
     log("info", "scheduler.task.claimed", {
       taskId: input.taskId,
@@ -915,13 +925,14 @@ export function createScheduler<
       leaseExpiresAt,
       claimToken,
       remainingLeaseMilliseconds,
+      maxHandlerBudgetMilliseconds,
     });
 
     let handlerOutcome:
       | { readonly kind: "result"; readonly result: ScheduledTaskResult }
       | { readonly kind: "failure"; readonly category: string };
 
-    if (remainingLeaseMilliseconds <= 0) {
+    if (maxHandlerBudgetMilliseconds < 1) {
       handlerOutcome = { kind: "failure", category: "lease_exhausted" };
     } else {
       const context: ScheduledTaskContext = {
@@ -933,7 +944,7 @@ export function createScheduler<
       };
       const effectiveTimeoutMilliseconds = Math.min(
         handlerTimeoutMilliseconds,
-        remainingLeaseMilliseconds,
+        maxHandlerBudgetMilliseconds,
       );
       const timeout = createTimeout(effectiveTimeoutMilliseconds);
       try {
