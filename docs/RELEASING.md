@@ -7,7 +7,9 @@ Before adding release automation:
 
 1. Complete the Phase 2 runner and adversarial tests.
 2. Complete real Azurite and D1 verification.
-3. Complete Ops Hub and Support Desk consumer fixtures.
+3. Complete Ops Hub and Support Desk consumer fixtures
+   (`fixtures/ops-hub`, `fixtures/support-desk`, plus Azure reference under
+   `fixtures/azure-functions`).
 4. Complete a focused security review.
 5. Refresh exact Pegma dependency pins from `https://pegma.dev/catalog.json`.
 

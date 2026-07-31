@@ -26,8 +26,9 @@ into the core invocation contract and routes `controller.cron` through an
 explicit host-supplied map. It does not own D1, Wrangler configuration, or
 task discovery.
 
-Azure begins as a tested composition example. A package is justified only
-after repeated adapter behavior appears in a second Azure consumer.
+Azure begins as a tested composition example under
+`fixtures/azure-functions`. A package is justified only after repeated adapter
+behavior appears in a second Azure consumer.
 
 ## Static task registry
 

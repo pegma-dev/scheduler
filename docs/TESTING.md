@@ -68,12 +68,20 @@ Real local D1 tests (`npm run test:d1`) through
 - concurrent claim fencing on the same task;
 - `waitUntil` wiring on the execution context.
 
+## Phase 4 consumer fixture coverage
+
+Independent fixtures under `fixtures/` pin workspace package versions and prove:
+
+- Ops Hub: health + GitHub routes, independent checkpoints, live-lease overlap;
+- Support Desk: five direct loops, independent checkpoints, no dynamic
+  receipt-bucket tasks, failure retains checkpoints without secrets;
+- Azure Functions: timer entry point, checkpoint cycle, stale redelivery.
+
 ## Adapter and consumer matrix
 
-Before publication, also run:
+Before publication, also run full host applications when they exist:
 
-- an Ops Hub health and GitHub-sync fixture (Phase 4);
-- Support Desk mail-send, reconciliation, terminal sweep, queue repair, and
-  inactive-sweep fixtures (Phase 4).
+- Ops Hub Worker + Docker volume story (host still bootstrap-only);
+- Support Desk production host wiring after `@pegma/scheduler@0.1.0` publishes.
 
 Memory tests are never a production durability claim.

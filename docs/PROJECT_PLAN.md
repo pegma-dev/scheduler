@@ -2,8 +2,8 @@
 
 ## Status
 
-**Stage:** Phases 0–3 are complete in source (contracts, durable runner, and
-Cloudflare Cron Trigger adapter with local D1 tests). No package is published
+**Stage:** Phases 0–4 are complete in source (contracts, durable runner,
+Cloudflare adapter, and independent consumer fixtures). No package is published
 or production-usable.
 
 **Trigger:** Ops Hub and Support Desk independently need the same explicit,
@@ -91,7 +91,7 @@ tests pass against Memory Store and Azurite.
 **Exit criterion:** a synthetic Worker fixture survives restart, repeated
 events, overlap, and a complete checkpoint cycle against persistent local D1.
 
-### Phase 4 — consumer integration
+### Phase 4 — consumer integration (complete)
 
 - Compose Ops Hub health probing and GitHub synchronization.
 - Compose Support Desk mail send/reconciliation/retention and queue repair.
@@ -101,6 +101,14 @@ events, overlap, and a complete checkpoint cycle against persistent local D1.
 
 **Exit criterion:** both independent consumers compile against exact package
 pins and their integration tests prove real scheduled work.
+
+**Phase 4 evidence:** `fixtures/ops-hub`, `fixtures/support-desk`, and
+`fixtures/azure-functions` pin workspace `@pegma/scheduler@0.0.0` (and the
+Cloudflare adapter for Ops Hub) and prove scheduled work with independent
+task state. Ops Hub remains bootstrap-only as a host application; the fixture
+is the integration bar until that host lands Worker phases. Support Desk
+domain packages stay outside this repository; the fixture mirrors
+`HOST_COMPOSITION.md` loop names without inventing per-bucket tasks.
 
 ### Phase 5 — first advertised release
 
