@@ -2,8 +2,9 @@
 
 ## Status
 
-**Stage:** Phase 0 requirements validation and Phase 1 repository foundation
-are complete in source. No package is published or production-usable.
+**Stage:** Phase 0 requirements validation, Phase 1 repository foundation, and
+Phase 2 durable runner are complete in source. No package is published or
+production-usable.
 
 **Trigger:** Ops Hub and Support Desk independently need the same explicit,
 durable coordination boundary for recurring work.
@@ -63,7 +64,7 @@ Exit evidence is recorded in `CONSUMER_REQUIREMENTS.md`.
 **Exit criterion:** the package builds, its stored state round-trips, malformed
 registrations and state fail closed, and the full local gate passes.
 
-### Phase 2 — durable runner
+### Phase 2 — durable runner (complete)
 
 - Implement `createScheduler` over an injected Store, Clock, and Logger.
 - Claim with Storage Core `update` and a unique fencing token.
@@ -120,12 +121,13 @@ pins and their integration tests prove real scheduled work.
 - domain retries, outboxes, or retention policy;
 - a hosted scheduler service or control plane.
 
-## Open questions for Phase 2
+## Phase 2 decisions
 
-- Whether scheduled occurrence suppression keys solely on `scheduledFor` or
-  also retains a bounded host occurrence identifier.
-- The default lease duration and maximum accepted lease.
-- Whether manual runs bypass monotonic scheduled occurrence suppression while
-  still sharing the same task lease.
-- Whether safe numeric summaries belong only in logs or in durable last-run
-  inspection state.
+- Scheduled occurrence suppression keys solely on `scheduledFor` versus
+  `lastScheduledFor`. Host `invocationId` is diagnostic only.
+- Default lease is 30 seconds; maximum accepted lease is 24 hours. Handler
+  timeout defaults to the lease minus one second of completion headroom.
+- Manual runs bypass monotonic scheduled occurrence suppression and still
+  share the same task lease. They do not rewrite `lastScheduledFor`.
+- Safe numeric summaries are emitted on structured success logs only in `0.1`;
+  they are not durable inspection fields.

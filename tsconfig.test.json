@@ -8,5 +8,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["packages/*/src/**/*.test.ts", "vitest.config.ts"]
+  "include": ["packages/*/src/**/*.test.ts", "test/**/*.ts", "vitest.config.ts"]
 }

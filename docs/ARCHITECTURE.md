@@ -19,7 +19,7 @@ and business-safe storage transitions.
 ## Packages
 
 `@pegma/scheduler` is runtime-neutral and takes an injected Storage Core
-`Store`, Spine `Clock`, and Spine `Logger` when the Phase 2 runner is built.
+`Store`, Spine `Clock`, and Spine `Logger` through `createScheduler`.
 
 `@pegma/scheduler-cloudflare` is deferred until Phase 3. It will translate a
 Cloudflare `ScheduledController` into the core invocation contract and route
@@ -58,18 +58,26 @@ commit atomically with domain records. The host supplies the Store and adapter.
 The physical key is `(instanceId, taskId)`. Known task IDs make direct keyed
 access sufficient; Scheduler needs no query language or secondary index.
 
-## Planned execution state machine
+## Execution state machine
 
 1. Validate a registered task and canonical invocation input.
 2. Use Storage Core `update` to create or claim its row.
-3. Skip a live claim or an occurrence no newer than the latest completed one.
+3. Skip a live claim or a scheduled occurrence no newer than `lastScheduledFor`.
 4. Mint a unique fencing token and persist a bounded lease.
-5. Invoke one bounded handler with the prior checkpoint.
+5. Invoke one bounded handler with the prior checkpoint under a wall-clock
+   timeout shorter than the lease.
 6. On success, update only if the fencing token still owns the row.
 7. Advance, clear, or retain the checkpoint according to the result.
-8. On failure, retain the checkpoint, clear the lease, and record only a safe
-   failure category.
-9. An expired claim may be recovered; its stale worker can no longer commit.
+8. On ordinary failure, retain the checkpoint, clear the lease, and record only
+   a safe failure category.
+9. On `handler_timeout`, return failure to the caller but **retain** the live
+   lease and `running` state: the wall-clock timeout cannot stop the handler,
+   so clearing the claim would allow concurrent work. Immediate retries stay
+   blocked until lease expiry; `consecutiveFailures` is not incremented until a
+   terminal failure is fenced.
+10. An expired claim may be recovered; its stale worker can no longer commit.
+11. Manual invocation shares the lease but does not consult or rewrite
+    `lastScheduledFor`.
 
 The handler may already have produced an external side effect before a crash.
 Execution is therefore at-least-once. Domain idempotency is mandatory.

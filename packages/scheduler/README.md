@@ -7,18 +7,14 @@ Durable coordination for host-triggered recurring work.
 > production yet. Version `0.0.0` is a repository-development placeholder,
 > not an advertised release.
 
-Phase 1 provides the public task/checkpoint contracts, validated static task
-registration, and the scheduler-owned durable state collection. The runner
-that claims and executes tasks arrives in Phase 2.
-
-The host still owns the actual wakeup: Cloudflare Cron Triggers, an Azure
-Functions timer, a Kubernetes CronJob, or a local development driver. This
-package will never pretend a library can guarantee that infrastructure fires.
-
-## Phase 1 surface
+Phase 2 provides the durable runner: claim, bounded leases, scheduled and
+manual invocation, fenced checkpoint advancement, safe run state, and keyed
+inspection. The host still owns the wakeup.
 
 ```ts
-import { defineScheduledTasks } from "@pegma/scheduler";
+import { fixedClock, noopLogger } from "@pegma/spine";
+import { createMemoryStore } from "@pegma/storage-core";
+import { createScheduler, defineScheduledTasks } from "@pegma/scheduler";
 
 const tasks = defineScheduledTasks({
   "support.mail.send": async ({ checkpoint }) => {
@@ -29,12 +25,45 @@ const tasks = defineScheduledTasks({
     return { nextCheckpoint: page.nextCursor };
   },
 });
+
+const scheduler = createScheduler({
+  store: createMemoryStore(),
+  clock: fixedClock("2026-07-31T12:00:00.000Z"),
+  logger: noopLogger,
+  instanceId: "retiregolden-support",
+  workerId: "worker-1",
+  tasks,
+});
+
+await scheduler.runScheduled("support.mail.send", {
+  scheduledFor: "2026-07-31T12:00:00.000Z",
+  invocationId: "invocation-1",
+});
 ```
 
-Task names are explicit static identifiers. A string checkpoint advances one
-scan cycle, `null` closes it, and omission leaves it unchanged. Checkpoints are
-opaque and belong only to the task that produced them.
+## Contracts
+
+- Task names are explicit static identifiers registered at the composition root.
+- A string checkpoint advances one scan cycle, `null` closes it, and omission
+  leaves it unchanged.
+- Scheduled occurrences are suppressed when `scheduledFor` is not strictly
+  newer than the last accepted scheduled occurrence.
+- Manual runs bypass occurrence suppression but share the same task lease.
+- Execution is at-least-once: a crash after a side effect and before fenced
+  completion can repeat work. Domain operations must be idempotent.
+- `handler_timeout` returns `outcome: "failed"` while leaving the durable row
+  `running` with its lease intact, because the timeout cannot abort the
+  handler. Other workers still see a live lease until expiry.
+- Handler `summary` values are logged only; they are not durable inspection
+  state in `0.1`.
+- Default lease is 30 seconds; the maximum accepted lease is 24 hours. The
+  handler timeout defaults to the lease minus one second of completion headroom
+  when the lease is longer than one second; shorter leases default to the full
+  claim budget. After claim I/O the runner re-samples the clock and runs the
+  handler only when more than one second of lease remains, capping the timeout
+  to remaining lease minus that headroom.
 
 See the repository [architecture](../../docs/ARCHITECTURE.md),
-[consumer evidence](../../docs/CONSUMER_REQUIREMENTS.md), and
+[consumer evidence](../../docs/CONSUMER_REQUIREMENTS.md),
+[testing matrix](../../docs/TESTING.md), and
 [project plan](../../docs/PROJECT_PLAN.md).
