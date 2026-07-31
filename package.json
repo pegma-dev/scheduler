@@ -19,6 +19,9 @@
     "clean": "tsc -b --clean",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "release:check": "node scripts/release-packages.mjs check",
+    "release:pack": "node scripts/release-packages.mjs pack",
+    "release:publish": "node scripts/release-packages.mjs publish",
     "test": "npm run build && npm run test:node && npm run test:d1",
     "test:node": "vitest run --config vitest.config.ts",
     "test:d1": "vitest run --config vitest.d1.config.ts"

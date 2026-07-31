@@ -14,7 +14,8 @@ Phase 4 is implemented in source. The repository contains
 `@pegma/scheduler` (contracts, durable runner), `@pegma/scheduler-cloudflare`
 (explicit Cron Trigger dispatch), independent consumer fixtures under
 `fixtures/`, Memory Store / Azurite / local D1 tests, and design documentation.
-No package has been published.
+`0.0.0` was a package-name bootstrap only. The first advertised release is
+`0.1.0` via the OIDC publish workflow once `v0.1.0` is tagged.
 
 The first consumers are:
 
