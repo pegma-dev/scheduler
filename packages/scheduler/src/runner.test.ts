@@ -492,11 +492,14 @@ describe("createScheduler", () => {
     }
   });
 
-  it("times out a hung handler before the lease ends", async () => {
+  it("times out a hung handler before the lease ends without clearing the lease", async () => {
     const logger = recordingLogger();
+    const store = createMemoryStore();
     const scheduler = createScheduler(
       baseOptions({
+        store,
         logger,
+        workerId: "worker-a",
         leaseMilliseconds: 200,
         handlerTimeoutMilliseconds: 30,
         tasks: {
@@ -517,9 +520,27 @@ describe("createScheduler", () => {
     expect(result.outcome).toBe("failed");
     if (result.outcome === "failed") {
       expect(result.failureCategory).toBe("handler_timeout");
-      expect(result.state.status).toBe("failed");
-      expect(result.state.leaseOwner).toBeUndefined();
+      // The hung handler may still be running; keep the claim until expiry.
+      expect(result.state.status).toBe("running");
+      expect(result.state.leaseOwner).toBe("worker-a");
+      expect(result.state.leaseExpiresAt).toBeDefined();
     }
+
+    const blocked = await createScheduler(
+      baseOptions({
+        store,
+        workerId: "worker-b",
+        leaseMilliseconds: 200,
+        handlerTimeoutMilliseconds: 30,
+        tasks: {
+          "github.sync-orgs": async () => ({ nextCheckpoint: "too-soon" }),
+        },
+      }),
+    ).runScheduled("github.sync-orgs", {
+      scheduledFor: T1,
+      invocationId: "blocked",
+    });
+    expect(blocked).toMatchObject({ outcome: "skipped", reason: "live_lease" });
   });
 
   it("rejects unsafe summaries and failure categories without persisting secrets", async () => {

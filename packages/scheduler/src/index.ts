@@ -568,17 +568,14 @@ function createTimeout(milliseconds: number): {
   let handle: ReturnType<typeof setTimeout> | undefined;
   let finished = false;
   const promise = new Promise<"timeout">((resolve) => {
+    // Keep the timer referenced while pending so a one-shot Node host with a
+    // quiet handler promise still enforces the bound. cancel() clears it when
+    // the handler settles first.
     handle = setTimeout(() => {
       finished = true;
       handle = undefined;
       resolve("timeout");
     }, milliseconds);
-    // Node may keep the process alive for a pending timer; clearTimeout is the
-    // primary fix, and unref is a best-effort extra on hosts that support it.
-    const timer = handle as { unref?: () => void };
-    if (typeof timer.unref === "function") {
-      timer.unref();
-    }
   });
   return {
     promise,
@@ -1019,6 +1016,28 @@ export function createScheduler<
         outcome: "succeeded",
         state,
         result: handlerOutcome.result,
+      };
+    }
+
+    // A wall-clock timeout cannot stop the in-flight handler. Clearing the
+    // lease would let another worker start while side effects may still run.
+    // Retain the claim until natural expiry so recovery, not concurrent claim,
+    // is the next owner.
+    if (handlerOutcome.category === "handler_timeout") {
+      const current = (await readState(input.taskId)) ?? claimed.state;
+      log("warn", "scheduler.task.failed", {
+        taskId: input.taskId,
+        mode: input.mode,
+        invocationId: input.invocationId,
+        scheduledFor: input.scheduledFor,
+        failureCategory: "handler_timeout",
+        leaseRetained: true,
+        leaseExpiresAt: current.leaseExpiresAt,
+      });
+      return {
+        outcome: "failed",
+        state: current,
+        failureCategory: "handler_timeout",
       };
     }
 
