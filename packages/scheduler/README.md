@@ -51,6 +51,9 @@ await scheduler.runScheduled("support.mail.send", {
 - Manual runs bypass occurrence suppression but share the same task lease.
 - Execution is at-least-once: a crash after a side effect and before fenced
   completion can repeat work. Domain operations must be idempotent.
+- `handler_timeout` returns `outcome: "failed"` while leaving the durable row
+  `running` with its lease intact, because the timeout cannot abort the
+  handler. Other workers still see a live lease until expiry.
 - Handler `summary` values are logged only; they are not durable inspection
   state in `0.1`.
 - Default lease is 30 seconds; the maximum accepted lease is 24 hours. The
