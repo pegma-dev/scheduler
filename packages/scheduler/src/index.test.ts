@@ -139,4 +139,14 @@ describe("scheduler task state", () => {
       ),
     ).toThrow(/coarse safe token/);
   });
+
+  it("treats omitted optional fields as absent for backends that drop nulls", () => {
+    const encoded = schedulerTaskStates.codec.encode(succeededState());
+    const withoutNulls = Object.fromEntries(
+      Object.entries(encoded).filter(([, value]) => value !== null),
+    );
+    expect(schedulerTaskStates.codec.decode(withoutNulls)).toEqual(
+      succeededState(),
+    );
+  });
 });

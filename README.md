@@ -10,9 +10,10 @@ writes.
 
 ## Status
 
-Phase 1 is implemented in source. The repository contains the initial
-`@pegma/scheduler` contracts, validated task registry, declared durable state
-collection, tests, and design documentation. No package has been published.
+Phase 2 is implemented in source. The repository contains the
+`@pegma/scheduler` contracts, validated task registry, durable runner
+(`createScheduler`), Memory Store and Azurite adversarial tests, and design
+documentation. No package has been published.
 
 The first consumers are:
 
@@ -22,10 +23,10 @@ The first consumers are:
 
 ## Packages
 
-| Package                       | Status          | Responsibility                                   |
-| ----------------------------- | --------------- | ------------------------------------------------ |
-| `@pegma/scheduler`            | Phase 1 source  | Runtime-neutral contracts and durable task state |
-| `@pegma/scheduler-cloudflare` | Planned Phase 3 | Thin explicit Cron Trigger dispatch adapter      |
+| Package                       | Status          | Responsibility                              |
+| ----------------------------- | --------------- | ------------------------------------------- |
+| `@pegma/scheduler`            | Phase 2 source  | Contracts, durable task state, and runner   |
+| `@pegma/scheduler-cloudflare` | Planned Phase 3 | Thin explicit Cron Trigger dispatch adapter |
 
 Do not create the Cloudflare package directory until its implementation starts.
 
