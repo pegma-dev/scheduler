@@ -1,0 +1,39 @@
+{
+  "name": "@pegma/scheduler-cloudflare",
+  "version": "0.0.0",
+  "description": "Cloudflare Cron Trigger dispatch for @pegma/scheduler.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "dist/**/*.js",
+    "dist/**/*.js.map"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pegma-dev/scheduler.git",
+    "directory": "packages/scheduler-cloudflare"
+  },
+  "dependencies": {
+    "@pegma/scheduler": "0.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  }
+}

@@ -6,19 +6,35 @@ Cloudflare owns Cron Trigger delivery and the host owns `wrangler.jsonc`.
 Production cron expressions have five fields and one-minute resolution. A
 30-second production cadence is therefore outside Cloudflare Cron Triggers.
 
-The planned adapter receives a `ScheduledController` and dispatches its `cron`
-value through a static host map. Multiple tasks may intentionally share one
-cron expression; each retains independent durable state.
+`@pegma/scheduler-cloudflare` receives a `ScheduledController` and dispatches
+its `cron` value through a static host map. Multiple tasks may intentionally
+share one cron expression; each retains independent durable state.
 
 ```ts
-const routes = {
-  "* * * * *": ["health.probe-targets"],
-  "*/10 * * * *": ["github.sync-orgs"],
-} as const;
+import { createCloudflareSchedulerDispatch } from "@pegma/scheduler-cloudflare";
+
+const dispatch = createCloudflareSchedulerDispatch({
+  scheduler,
+  routes: {
+    "* * * * *": ["health.probe-targets"],
+    "*/10 * * * *": ["github.sync-orgs"],
+  },
+});
+
+export default {
+  async scheduled(controller, env, ctx) {
+    // waitUntil is registered inside the adapter when ctx is passed.
+    await dispatch.scheduled(controller, ctx);
+  },
+};
 ```
 
 The same expression must appear in Wrangler configuration. The adapter does
-not mutate deployment configuration or discover it.
+not mutate deployment configuration or discover it. Unmapped cron values fail
+closed.
+
+`controller.scheduledTime` (Unix milliseconds) becomes the trusted
+`scheduledFor` ISO timestamp for durable occurrence suppression.
 
 ## Local Docker
 
@@ -44,10 +60,18 @@ survive restarts. Do not treat Memory Store as durability evidence.
 
 ## Test layers
 
-1. Core tests invoke tasks directly against Memory Store.
-2. Adapter tests construct scheduled controller inputs without a network.
-3. Wrangler integration tests call `/__scheduled` against local D1.
-4. A green Ops Hub fixture proves Docker volume and repeated trigger behavior.
+1. Core tests invoke tasks directly against Memory Store (and Azurite).
+2. Adapter unit tests construct scheduled controller inputs without a network.
+3. Cloudflare Vitest pool tests run against real local D1
+   (`packages/scheduler-cloudflare/src/fixture.d1.test.ts`).
+4. A green Ops Hub fixture (Phase 4) proves Docker volume and repeated trigger
+   behavior.
+
+Run the D1 suite alone:
+
+```sh
+npm run test:d1
+```
 
 References:
 

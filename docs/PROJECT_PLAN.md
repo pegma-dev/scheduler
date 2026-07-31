@@ -2,9 +2,9 @@
 
 ## Status
 
-**Stage:** Phase 0 requirements validation, Phase 1 repository foundation, and
-Phase 2 durable runner are complete in source. No package is published or
-production-usable.
+**Stage:** Phases 0–3 are complete in source (contracts, durable runner, and
+Cloudflare Cron Trigger adapter with local D1 tests). No package is published
+or production-usable.
 
 **Trigger:** Ops Hub and Support Desk independently need the same explicit,
 durable coordination boundary for recurring work.
@@ -79,7 +79,7 @@ registrations and state fail closed, and the full local gate passes.
 **Exit criterion:** concurrency, crash, replay, stale-worker, and checkpoint
 tests pass against Memory Store and Azurite.
 
-### Phase 3 — Cloudflare adapter and local story
+### Phase 3 — Cloudflare adapter and local story (complete)
 
 - Implement `@pegma/scheduler-cloudflare` only when work begins.
 - Dispatch `ScheduledController.cron` through an explicit typed route map.
