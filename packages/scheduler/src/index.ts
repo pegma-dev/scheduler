@@ -908,14 +908,12 @@ export function createScheduler<
     }
     const leaseExpiresEpoch = started.epoch + leaseMilliseconds;
     const remainingLeaseMilliseconds = leaseExpiresEpoch - afterClaim.epoch;
-    // Prefer keeping completion headroom after claim latency. When the
-    // remaining budget is already shorter than the default headroom, allow the
-    // full remainder rather than inventing a 1ms handler window.
+    // Always reserve completion headroom after claim latency. Without it the
+    // handler timeout would land at lease expiry and a reclaim could overlap a
+    // still-running timed-out handler.
     const maxHandlerBudgetMilliseconds =
-      remainingLeaseMilliseconds > DEFAULT_HANDLER_TIMEOUT_HEADROOM_MILLISECONDS
-        ? remainingLeaseMilliseconds -
-          DEFAULT_HANDLER_TIMEOUT_HEADROOM_MILLISECONDS
-        : remainingLeaseMilliseconds;
+      remainingLeaseMilliseconds -
+      DEFAULT_HANDLER_TIMEOUT_HEADROOM_MILLISECONDS;
 
     log("info", "scheduler.task.claimed", {
       taskId: input.taskId,

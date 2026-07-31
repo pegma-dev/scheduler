@@ -55,9 +55,10 @@ await scheduler.runScheduled("support.mail.send", {
   state in `0.1`.
 - Default lease is 30 seconds; the maximum accepted lease is 24 hours. The
   handler timeout defaults to the lease minus one second of completion headroom
-  when the lease is longer than one second; shorter leases use the full claim
-  budget. After claim I/O the runner re-caps the handler to remaining lease
-  time (again reserving headroom when enough budget remains).
+  when the lease is longer than one second; shorter leases default to the full
+  claim budget. After claim I/O the runner re-samples the clock and runs the
+  handler only when more than one second of lease remains, capping the timeout
+  to remaining lease minus that headroom.
 
 See the repository [architecture](../../docs/ARCHITECTURE.md),
 [consumer evidence](../../docs/CONSUMER_REQUIREMENTS.md),

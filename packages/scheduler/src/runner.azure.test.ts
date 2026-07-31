@@ -102,11 +102,18 @@ describe("createScheduler against Azurite", () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
+    let entered: (() => void) | undefined;
+    const enteredGate = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     let starts = 0;
     const tasks = defineScheduledTasks({
       "health.probe-targets": async () => {
         starts += 1;
-        if (starts === 1) await gate;
+        if (starts === 1) {
+          entered?.();
+          await gate;
+        }
         return { summary: { targets: 1 } };
       },
     });
@@ -136,7 +143,7 @@ describe("createScheduler against Azurite", () => {
       scheduledFor: T1,
       invocationId: "a",
     });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await enteredGate;
     const second = await b.runScheduled("health.probe-targets", {
       scheduledFor: T1,
       invocationId: "b",

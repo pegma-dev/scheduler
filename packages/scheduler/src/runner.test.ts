@@ -141,11 +141,16 @@ describe("createScheduler", () => {
     const firstGate = new Promise<void>((resolve) => {
       releaseFirst = resolve;
     });
+    let entered: (() => void) | undefined;
+    const enteredGate = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     let starts = 0;
 
     const handler: ScheduledTaskHandler = async () => {
       starts += 1;
       if (starts === 1) {
+        entered?.();
         await firstGate;
       }
       return { nextCheckpoint: `worker-${starts}` };
@@ -170,7 +175,7 @@ describe("createScheduler", () => {
       scheduledFor: T1,
       invocationId: "a",
     });
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await enteredGate;
     const second = await b.runScheduled("github.sync-orgs", {
       scheduledFor: T1,
       invocationId: "b",
@@ -257,8 +262,8 @@ describe("createScheduler", () => {
         store,
         clock: time.clock,
         workerId: "worker-a",
-        leaseMilliseconds: 1_000,
-        handlerTimeoutMilliseconds: 1_000,
+        leaseMilliseconds: 5_000,
+        handlerTimeoutMilliseconds: 4_000,
         tasks: {
           "github.sync-orgs": async () => {
             await gate;
@@ -279,8 +284,8 @@ describe("createScheduler", () => {
         store,
         clock: time.clock,
         workerId: "worker-b",
-        leaseMilliseconds: 1_000,
-        handlerTimeoutMilliseconds: 1_000,
+        leaseMilliseconds: 5_000,
+        handlerTimeoutMilliseconds: 4_000,
         tasks: {
           "github.sync-orgs": async () => ({ nextCheckpoint: "too-early" }),
         },
@@ -294,7 +299,7 @@ describe("createScheduler", () => {
       reason: "live_lease",
     });
 
-    time.advance(2_000);
+    time.advance(6_000);
     const recovered = await createScheduler(
       baseOptions({
         store,
@@ -500,7 +505,7 @@ describe("createScheduler", () => {
         store,
         logger,
         workerId: "worker-a",
-        leaseMilliseconds: 200,
+        leaseMilliseconds: 5_000,
         handlerTimeoutMilliseconds: 30,
         tasks: {
           "github.sync-orgs": async () => {
@@ -530,7 +535,7 @@ describe("createScheduler", () => {
       baseOptions({
         store,
         workerId: "worker-b",
-        leaseMilliseconds: 200,
+        leaseMilliseconds: 5_000,
         handlerTimeoutMilliseconds: 30,
         tasks: {
           "github.sync-orgs": async () => ({ nextCheckpoint: "too-soon" }),
@@ -648,8 +653,8 @@ describe("createScheduler crash semantics", () => {
         store,
         clock: time.clock,
         workerId: "worker-a",
-        leaseMilliseconds: 1_000,
-        handlerTimeoutMilliseconds: 1_000,
+        leaseMilliseconds: 5_000,
+        handlerTimeoutMilliseconds: 4_000,
         tasks: {
           "github.sync-orgs": async () => {
             effects.push("side-effect");
@@ -667,7 +672,7 @@ describe("createScheduler crash semantics", () => {
     expect(effects).toEqual(["side-effect"]);
 
     // Simulate lease expiry + recovery without waiting for the first handler.
-    time.advance(2_000);
+    time.advance(6_000);
     const recovered = await createScheduler(
       baseOptions({
         store,
