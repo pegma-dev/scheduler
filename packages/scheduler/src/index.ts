@@ -561,10 +561,34 @@ function applyCheckpoint(
   return nextCheckpoint;
 }
 
-function delay(milliseconds: number): Promise<"timeout"> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve("timeout"), milliseconds);
+function createTimeout(milliseconds: number): {
+  readonly promise: Promise<"timeout">;
+  cancel(): void;
+} {
+  let handle: ReturnType<typeof setTimeout> | undefined;
+  let finished = false;
+  const promise = new Promise<"timeout">((resolve) => {
+    handle = setTimeout(() => {
+      finished = true;
+      handle = undefined;
+      resolve("timeout");
+    }, milliseconds);
+    // Node may keep the process alive for a pending timer; clearTimeout is the
+    // primary fix, and unref is a best-effort extra on hosts that support it.
+    const timer = handle as { unref?: () => void };
+    if (typeof timer.unref === "function") {
+      timer.unref();
+    }
   });
+  return {
+    promise,
+    cancel() {
+      if (handle !== undefined && !finished) {
+        clearTimeout(handle);
+        handle = undefined;
+      }
+    },
+  };
 }
 
 /**
@@ -877,6 +901,15 @@ export function createScheduler<
       };
     }
 
+    // Claim I/O may consume lease budget; re-sample the clock and never run a
+    // handler after the durable lease has already expired.
+    const afterClaim = clockNow();
+    if (afterClaim.epoch < started.epoch) {
+      throw new TypeError("clock.now() moved backward during claim");
+    }
+    const leaseExpiresEpoch = started.epoch + leaseMilliseconds;
+    const remainingLeaseMilliseconds = leaseExpiresEpoch - afterClaim.epoch;
+
     log("info", "scheduler.task.claimed", {
       taskId: input.taskId,
       mode: input.mode,
@@ -884,52 +917,63 @@ export function createScheduler<
       scheduledFor: input.scheduledFor,
       leaseExpiresAt,
       claimToken,
+      remainingLeaseMilliseconds,
     });
-
-    const context: ScheduledTaskContext = {
-      scheduledFor: input.scheduledFor,
-      invocationId: input.invocationId,
-      ...(claimed.state.checkpoint === undefined
-        ? {}
-        : { checkpoint: claimed.state.checkpoint }),
-    };
 
     let handlerOutcome:
       | { readonly kind: "result"; readonly result: ScheduledTaskResult }
       | { readonly kind: "failure"; readonly category: string };
 
-    try {
-      const settled = await Promise.race([
-        input.handler(context).then(
-          (value) => ({ kind: "settled" as const, value }) as const,
-          (error: unknown) => ({ kind: "rejected" as const, error }) as const,
-        ),
-        delay(handlerTimeoutMilliseconds),
-      ]);
+    if (remainingLeaseMilliseconds <= 0) {
+      handlerOutcome = { kind: "failure", category: "lease_exhausted" };
+    } else {
+      const context: ScheduledTaskContext = {
+        scheduledFor: input.scheduledFor,
+        invocationId: input.invocationId,
+        ...(claimed.state.checkpoint === undefined
+          ? {}
+          : { checkpoint: claimed.state.checkpoint }),
+      };
+      const effectiveTimeoutMilliseconds = Math.min(
+        handlerTimeoutMilliseconds,
+        remainingLeaseMilliseconds,
+      );
+      const timeout = createTimeout(effectiveTimeoutMilliseconds);
+      try {
+        const settled = await Promise.race([
+          input.handler(context).then(
+            (value) => ({ kind: "settled" as const, value }) as const,
+            (error: unknown) => ({ kind: "rejected" as const, error }) as const,
+          ),
+          timeout.promise,
+        ]);
+        timeout.cancel();
 
-      if (settled === "timeout") {
-        handlerOutcome = { kind: "failure", category: "handler_timeout" };
-      } else if (settled.kind === "rejected") {
-        handlerOutcome = {
-          kind: "failure",
-          category: failureCategoryFor(settled.error),
-        };
-      } else {
-        const normalized = normalizeHandlerResult(settled.value);
-        if (normalized === null) {
+        if (settled === "timeout") {
+          handlerOutcome = { kind: "failure", category: "handler_timeout" };
+        } else if (settled.kind === "rejected") {
           handlerOutcome = {
             kind: "failure",
-            category: "handler_result_invalid",
+            category: failureCategoryFor(settled.error),
           };
         } else {
-          handlerOutcome = { kind: "result", result: normalized };
+          const normalized = normalizeHandlerResult(settled.value);
+          if (normalized === null) {
+            handlerOutcome = {
+              kind: "failure",
+              category: "handler_result_invalid",
+            };
+          } else {
+            handlerOutcome = { kind: "result", result: normalized };
+          }
         }
+      } catch (error) {
+        timeout.cancel();
+        handlerOutcome = {
+          kind: "failure",
+          category: failureCategoryFor(error),
+        };
       }
-    } catch (error) {
-      handlerOutcome = {
-        kind: "failure",
-        category: failureCategoryFor(error),
-      };
     }
 
     const finished = completionNow(started.epoch);

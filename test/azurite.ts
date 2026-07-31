@@ -74,11 +74,20 @@ export async function setup(): Promise<void> {
     { stdio: "ignore" },
   );
 
-  child.once("error", (error) => {
-    throw error;
+  const startupFailure = new Promise<never>((_, reject) => {
+    child?.once("error", (error) => {
+      reject(error);
+    });
+    child?.once("exit", (code, signal) => {
+      reject(
+        new Error(
+          `Azurite exited before accepting connections (code=${String(code)}, signal=${String(signal)})`,
+        ),
+      );
+    });
   });
 
-  await waitForPort(TABLE_PORT, 30_000);
+  await Promise.race([waitForPort(TABLE_PORT, 30_000), startupFailure]);
 }
 
 export async function teardown(): Promise<void> {
