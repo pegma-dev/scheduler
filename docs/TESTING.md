@@ -50,11 +50,28 @@ checkpoint cycle, occurrence suppression, and concurrent claim fencing on a
 real Table Storage protocol endpoint. Vitest starts Azurite via
 `test/azurite.ts` for the full suite.
 
+## Phase 3 Cloudflare adapter coverage
+
+Adapter unit tests cover:
+
+- cron route dispatch and multi-task routes;
+- `scheduledTime` → `scheduledFor` conversion;
+- `waitUntil` registration;
+- unmapped cron fail-closed behavior;
+- overlap suppression and checkpoint cycles through the adapter.
+
+Real local D1 tests (`npm run test:d1`) through
+`@pegma/storage-cloudflare-d1` and the Cloudflare Workers Vitest pool cover:
+
+- a complete checkpoint cycle with occurrence suppression;
+- durable state surviving a re-composed “restart”;
+- concurrent claim fencing on the same task;
+- `waitUntil` wiring on the execution context.
+
 ## Adapter and consumer matrix
 
 Before publication, also run:
 
-- real local Cloudflare D1 through Wrangler (Phase 3);
 - an Ops Hub health and GitHub-sync fixture (Phase 4);
 - Support Desk mail-send, reconciliation, terminal sweep, queue repair, and
   inactive-sweep fixtures (Phase 4).

@@ -1,4 +1,7 @@
 {
   "files": [],
-  "references": [{ "path": "./packages/scheduler" }]
+  "references": [
+    { "path": "./packages/scheduler" },
+    { "path": "./packages/scheduler-cloudflare" }
+  ]
 }

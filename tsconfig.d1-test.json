@@ -6,13 +6,11 @@
     "declarationMap": false,
     "sourceMap": false,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["@cloudflare/workers-types", "node"],
+    "lib": ["ES2022"]
   },
   "include": [
-    "packages/*/src/**/*.test.ts",
-    "test/**/*.ts",
-    "vitest.config.ts",
+    "packages/scheduler-cloudflare/src/**/*.d1.test.ts",
     "vitest.d1.config.ts"
-  ],
-  "exclude": ["packages/**/*.d1.test.ts"]
+  ]
 }

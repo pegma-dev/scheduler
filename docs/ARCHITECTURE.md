@@ -21,10 +21,10 @@ and business-safe storage transitions.
 `@pegma/scheduler` is runtime-neutral and takes an injected Storage Core
 `Store`, Spine `Clock`, and Spine `Logger` through `createScheduler`.
 
-`@pegma/scheduler-cloudflare` is deferred until Phase 3. It will translate a
-Cloudflare `ScheduledController` into the core invocation contract and route
-`controller.cron` through an explicit host-supplied map. It will not own D1,
-Wrangler configuration, or task discovery.
+`@pegma/scheduler-cloudflare` translates a Cloudflare `ScheduledController`
+into the core invocation contract and routes `controller.cron` through an
+explicit host-supplied map. It does not own D1, Wrangler configuration, or
+task discovery.
 
 Azure begins as a tested composition example. A package is justified only
 after repeated adapter behavior appears in a second Azure consumer.

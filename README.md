@@ -10,10 +10,10 @@ writes.
 
 ## Status
 
-Phase 2 is implemented in source. The repository contains the
-`@pegma/scheduler` contracts, validated task registry, durable runner
-(`createScheduler`), Memory Store and Azurite adversarial tests, and design
-documentation. No package has been published.
+Phase 3 is implemented in source. The repository contains
+`@pegma/scheduler` (contracts, durable runner), `@pegma/scheduler-cloudflare`
+(explicit Cron Trigger dispatch), Memory Store / Azurite / local D1 tests, and
+design documentation. No package has been published.
 
 The first consumers are:
 
@@ -23,12 +23,10 @@ The first consumers are:
 
 ## Packages
 
-| Package                       | Status          | Responsibility                              |
-| ----------------------------- | --------------- | ------------------------------------------- |
-| `@pegma/scheduler`            | Phase 2 source  | Contracts, durable task state, and runner   |
-| `@pegma/scheduler-cloudflare` | Planned Phase 3 | Thin explicit Cron Trigger dispatch adapter |
-
-Do not create the Cloudflare package directory until its implementation starts.
+| Package                       | Status         | Responsibility                              |
+| ----------------------------- | -------------- | ------------------------------------------- |
+| `@pegma/scheduler`            | Phase 3 source | Contracts, durable task state, and runner   |
+| `@pegma/scheduler-cloudflare` | Phase 3 source | Thin explicit Cron Trigger dispatch adapter |
 
 ## Development
 
@@ -37,6 +35,9 @@ npm ci
 npm run format:check
 npm run check
 npm test
+# or separately:
+npm run test:node
+npm run test:d1
 ```
 
 See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the delivery sequence.
