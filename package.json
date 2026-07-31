@@ -25,7 +25,7 @@
   "devDependencies": {
     "@azure/data-tables": "^13.3.2",
     "@cloudflare/vitest-pool-workers": "^0.18.8",
-    "@cloudflare/workers-types": "^4.20250726.0",
+    "@cloudflare/workers-types": "^5.20260731.1",
     "@pegma/storage-azure-tables": "^0.4.0",
     "@pegma/storage-cloudflare-d1": "0.4.1",
     "@types/node": "^26.1.1",
