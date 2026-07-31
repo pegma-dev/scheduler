@@ -1,7 +1,7 @@
 # Vitest Workers pool configuration for real local D1 tests.
 # Not a production deployment; cron routes live in consumer Wrangler configs.
 name = "scheduler-d1-tests"
-compatibility_date = "2026-07-29"
+compatibility_date = "2026-07-22"
 main = "d1-worker.ts"
 
 [[d1_databases]]

@@ -113,8 +113,10 @@ function requireController(controller: CloudflareScheduledController): {
   if (typeof scheduledTime !== "number" || !Number.isFinite(scheduledTime)) {
     throw new TypeError("controller.scheduledTime must be a finite number");
   }
-  const scheduledFor = new Date(scheduledTime).toISOString();
-  if (Number.isNaN(Date.parse(scheduledFor))) {
+  let scheduledFor: string;
+  try {
+    scheduledFor = new Date(scheduledTime).toISOString();
+  } catch {
     throw new TypeError("controller.scheduledTime is not a valid instant");
   }
   return { cron, scheduledFor };

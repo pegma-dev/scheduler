@@ -9,7 +9,8 @@ export default defineConfig({
         configPath: "./test/wrangler.d1.toml",
       },
       miniflare: {
-        compatibilityDate: "2026-07-29",
+        // Must not exceed the newest date supported by the locked workerd binary.
+        compatibilityDate: "2026-07-22",
         d1Databases: ["DB"],
       },
     }),
