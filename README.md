@@ -24,8 +24,8 @@ The first consumers are:
 
 ## Packages
 
-| Package                       | Status         | Responsibility                              |
-| ----------------------------- | -------------- | ------------------------------------------- |
+| Package                       | Status           | Responsibility                              |
+| ----------------------------- | ---------------- | ------------------------------------------- |
 | `@pegma/scheduler`            | **0.1.0** on npm | Contracts, durable task state, and runner   |
 | `@pegma/scheduler-cloudflare` | **0.1.0** on npm | Thin explicit Cron Trigger dispatch adapter |
 
