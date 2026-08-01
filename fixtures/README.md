@@ -17,6 +17,5 @@ names and bounded-page shapes documented in those consumers.
 | `support-desk`    | Mail send/reconcile/sweep + queue repair/inactive-sweep loops |
 | `azure-functions` | Timer-trigger composition for a RetireGolden-style Azure host |
 
-Run with the repository gate (`npm test`). External consumers should pin the
-first advertised release (`0.1.0`) from npm after the signed `v0.1.0` OIDC
-publish completes.
+Run with the repository gate (`npm test`). External consumers should pin
+`@pegma/scheduler@0.1.0` (and the Cloudflare adapter when needed) from npm.

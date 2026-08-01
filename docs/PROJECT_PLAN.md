@@ -2,21 +2,20 @@
 
 ## Status
 
-**Stage:** Phases 0–4 are complete in source. Phase 5 release automation and
-the first advertised `0.1.0` package versions are prepared for OIDC publish.
-The package-name bootstrap (`0.0.0` under tag `bootstrap`) is complete; trusted
-publishers are configured. Advertised `0.1.0` is published only from a signed
-`v0.1.0` tag through `.github/workflows/publish.yml`.
+**Stage:** Phases 0–5 complete. `@pegma/scheduler@0.1.0` and
+`@pegma/scheduler-cloudflare@0.1.0` are published on npm (`latest=0.1.0`) from
+the signed `v0.1.0` tag via OIDC. Bootstrap `0.0.0` remains under the
+`bootstrap` dist-tag only. Host wiring (Ops Hub, Support Desk, pegma.dev
+recipe) continues outside this repository.
 
 **Trigger:** Ops Hub and Support Desk independently need the same explicit,
 durable coordination boundary for recurring work.
 
-**Initial package:** `@pegma/scheduler` and `@pegma/scheduler-cloudflare`,
-first advertised release `0.1.0`.
+**Published packages:** `@pegma/scheduler@0.1.0` and
+`@pegma/scheduler-cloudflare@0.1.0`.
 
 **Current exact dependencies:** `@pegma/spine@0.1.2` and
 `@pegma/storage-core@0.4.0`, refreshed from the Pegma catalog on 2026-07-31.
-Refresh the catalog again before any consumer integration or release.
 
 ## Vision
 
@@ -105,14 +104,11 @@ events, overlap, and a complete checkpoint cycle against persistent local D1.
 pins and their integration tests prove real scheduled work.
 
 **Phase 4 evidence:** workspace packages under `fixtures/*` each declare exact
-dependency pins in their own `package.json` (`@pegma/scheduler@0.0.0`; Ops Hub
-also pins `@pegma/scheduler-cloudflare@0.0.0`) and prove scheduled work with
-independent task state. Ops Hub remains bootstrap-only as a host application;
-the fixture is the integration bar until that host lands Worker phases.
-Support Desk domain packages stay outside this repository; the fixture mirrors
-`HOST_COMPOSITION.md` loop names without inventing per-bucket tasks.
+dependency pins in their own `package.json` (`@pegma/scheduler@0.1.0`; Ops Hub
+also pins `@pegma/scheduler-cloudflare@0.1.0`) and prove scheduled work with
+independent task state.
 
-### Phase 5 — first advertised release (automation complete; tag/publish handoff)
+### Phase 5 — first advertised release (complete)
 
 - Complete focused security review and package inventory verification.
 - Add signed-tag/OIDC release automation following current Pegma practice.
@@ -120,12 +116,10 @@ Support Desk domain packages stay outside this repository; the fixture mirrors
 - Publish `0.1.0` only from a protected signed annotated tag.
 - Add the component and a green synthetic recipe to `pegma.dev`.
 
-**Automation evidence:** `.github/workflows/publish.yml`,
-`scripts/release-packages.mjs`, `npm run release:check|pack|publish`, package
-versions `0.1.0`, and `docs/RELEASE_NOTES.md`. Activation remains: signed
-`v0.1.0` tag + `gh release create` on `main`, then confirm `latest=0.1.0`.
-The `pegma.dev` recipe is a separate host-repo follow-up after registry
-visibility.
+**Evidence:** bootstrap `0.0.0` under dist-tag `bootstrap`; trusted publishers
+configured; signed `v0.1.0` → GitHub release → OIDC publish; registry
+`latest=0.1.0` for both packages. The `pegma.dev` catalog/recipe entry remains
+a separate host-repo follow-up.
 
 ## Non-goals
 
