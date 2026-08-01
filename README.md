@@ -10,12 +10,11 @@ writes.
 
 ## Status
 
-Phase 4 is implemented in source. The repository contains
-`@pegma/scheduler` (contracts, durable runner), `@pegma/scheduler-cloudflare`
-(explicit Cron Trigger dispatch), independent consumer fixtures under
-`fixtures/`, Memory Store / Azurite / local D1 tests, and design documentation.
-`0.0.0` was a package-name bootstrap only. The first advertised release is
-`0.1.0` via the OIDC publish workflow once `v0.1.0` is tagged.
+**Published:** `@pegma/scheduler@0.1.0` and `@pegma/scheduler-cloudflare@0.1.0`
+(`latest` on npm). The repository contains contracts, the durable runner,
+Cloudflare Cron Trigger dispatch, independent consumer fixtures under
+`fixtures/`, Memory Store / Azurite / local D1 tests, and OIDC release
+automation. Bootstrap `0.0.0` remains under the `bootstrap` dist-tag only.
 
 The first consumers are:
 
@@ -25,10 +24,10 @@ The first consumers are:
 
 ## Packages
 
-| Package                       | Status         | Responsibility                              |
-| ----------------------------- | -------------- | ------------------------------------------- |
-| `@pegma/scheduler`            | Phase 4 source | Contracts, durable task state, and runner   |
-| `@pegma/scheduler-cloudflare` | Phase 4 source | Thin explicit Cron Trigger dispatch adapter |
+| Package                       | Status           | Responsibility                              |
+| ----------------------------- | ---------------- | ------------------------------------------- |
+| `@pegma/scheduler`            | **0.1.0** on npm | Contracts, durable task state, and runner   |
+| `@pegma/scheduler-cloudflare` | **0.1.0** on npm | Thin explicit Cron Trigger dispatch adapter |
 
 ## Development
 

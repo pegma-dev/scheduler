@@ -71,5 +71,6 @@ Both consumers need:
 
 This closes requirements Phase 0. Phase 4 consumer fixtures under `fixtures/`
 compile against exact workspace package pins and prove real scheduled work for
-the Ops Hub and Support Desk task shapes. Full host applications still pin the
-first advertised release after Phase 5 publishes.
+the Ops Hub and Support Desk task shapes. Hosts should pin
+`@pegma/scheduler@0.1.0` (and `@pegma/scheduler-cloudflare@0.1.0` where
+applicable) from npm.

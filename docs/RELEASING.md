@@ -3,9 +3,8 @@
 There are exactly two publication paths:
 
 1. a one-time manual bootstrap of `@pegma/scheduler@0.0.0` and
-   `@pegma/scheduler-cloudflare@0.0.0` (already completed), needed before npm had
-   package names on which trusted publishing could be configured; and
-2. every advertised release, beginning with `0.1.0`, through the
+   `@pegma/scheduler-cloudflare@0.0.0` (**done**; dist-tag `bootstrap` only); and
+2. every advertised release, beginning with `0.1.0` (**published**), through the
    environment-protected GitHub OIDC workflow in
    [`.github/workflows/publish.yml`](../.github/workflows/publish.yml).
 
@@ -66,7 +65,7 @@ npm run release:pack -- -- --output .release
 # release:publish is restricted to the GitHub release workflow
 ```
 
-## After `0.1.0` lands
+## After a release lands
 
 Confirm:
 
@@ -76,5 +75,5 @@ npm dist-tag ls @pegma/scheduler-cloudflare
 npm view @pegma/scheduler version
 ```
 
-`latest` should be `0.1.0` for both packages. Unqualified install is then safe
-to advertise.
+For `0.1.0`, `latest` is `0.1.0` and `bootstrap` remains `0.0.0`. Unqualified
+install resolves to the advertised version.
