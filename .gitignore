@@ -12,3 +12,4 @@ coverage/
 Thumbs.db
 .idea/
 .vscode/
+/.grok/worktrees
