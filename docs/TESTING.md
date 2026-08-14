@@ -5,9 +5,9 @@
 Every change must pass:
 
 ```sh
-npm run format:check
-npm run check
-npm test
+pnpm run format:check
+pnpm run check
+pnpm test
 ```
 
 CI runs the gate on Node 22 and 24.
@@ -60,7 +60,7 @@ Adapter unit tests cover:
 - unmapped cron fail-closed behavior;
 - overlap suppression and checkpoint cycles through the adapter.
 
-Real local D1 tests (`npm run test:d1`) through
+Real local D1 tests (`pnpm run test:d1`) through
 `@pegma/storage-cloudflare-d1` and the Cloudflare Workers Vitest pool cover:
 
 - a complete checkpoint cycle with occurrence suppression;

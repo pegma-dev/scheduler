@@ -3,10 +3,10 @@
 Scheduler requires Node.js 22 or newer.
 
 ```sh
-npm ci
-npm run format:check
-npm run check
-npm test
+pnpm install --frozen-lockfile
+pnpm run format:check
+pnpm run check
+pnpm test
 ```
 
 Keep changes bounded and include tests for concurrency, crash recovery, stale

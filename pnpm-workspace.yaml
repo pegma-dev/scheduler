@@ -1,0 +1,9 @@
+packages:
+  - "packages/*"
+  - "fixtures/*"
+
+linkWorkspacePackages: true
+preferWorkspacePackages: true
+onlyBuiltDependencies:
+  - esbuild
+  - workerd

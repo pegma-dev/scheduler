@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -7,6 +7,7 @@ import {
   decidePublication,
   isNormalReleaseVersion,
   parseArguments,
+  parsePnpmLockfileImporters,
 } from "../scripts/release-packages.mjs";
 
 describe("release package metadata", () => {
@@ -49,6 +50,37 @@ describe("release package metadata", () => {
     expect(isNormalReleaseVersion("0.0.1")).toBe(false);
     expect(isNormalReleaseVersion("0.1.0")).toBe(true);
     expect(isNormalReleaseVersion("1.0.0")).toBe(true);
+  });
+
+  it("pins pnpm as the workspace package manager", () => {
+    const manifest = JSON.parse(
+      readFileSync(join(process.cwd(), "package.json"), "utf8"),
+    ) as { packageManager?: string };
+    expect(manifest.packageManager).toBe("pnpm@10.34.5");
+    expect(existsSync(join(process.cwd(), "pnpm-lock.yaml"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "pnpm-workspace.yaml"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "package-lock.json"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "yarn.lock"))).toBe(false);
+  });
+
+  it("reads workspace inventory and link pins from pnpm-lock.yaml", () => {
+    const importers = parsePnpmLockfileImporters(
+      readFileSync(join(process.cwd(), "pnpm-lock.yaml"), "utf8"),
+    );
+    expect(importers["packages/scheduler"]).toEqual({
+      dependencies: {
+        "@pegma/spine": { specifier: "0.1.2", version: "0.1.2" },
+        "@pegma/storage-core": { specifier: "0.4.0", version: "0.4.0" },
+      },
+    });
+    expect(
+      importers["packages/scheduler-cloudflare"]?.dependencies?.[
+        "@pegma/scheduler"
+      ],
+    ).toEqual({
+      specifier: "0.1.0",
+      version: "link:../scheduler",
+    });
   });
 
   it("skips a byte-identical existing version", () => {
