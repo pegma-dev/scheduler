@@ -45,6 +45,14 @@ export function parsePnpmLockfileImporters(
   Record<string, Record<string, { specifier?: string; version?: string }>>
 >;
 
+export function lockDependencyMatches(
+  lockDependency:
+    | { specifier?: string; version?: string }
+    | undefined,
+  specifier: string,
+  options?: { workspace?: boolean },
+): boolean;
+
 export function isNormalReleaseVersion(version: string): boolean;
 
 export function parseArguments(

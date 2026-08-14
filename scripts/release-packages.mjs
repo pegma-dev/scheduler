@@ -87,9 +87,17 @@ function run(command, arguments_, options = {}) {
   return result;
 }
 
+/** `pnpm run` sets npm_execpath to pnpm; pack/view/publish must still be npm. */
+function npmEnvironment(env = process.env) {
+  const isolated = { ...env };
+  delete isolated.npm_execpath;
+  return isolated;
+}
+
 function runNpm(arguments_, options = {}) {
   return run(process.platform === "win32" ? "npm.cmd" : "npm", arguments_, {
     ...options,
+    env: npmEnvironment(options.env ?? process.env),
     shell: process.platform === "win32",
   });
 }
@@ -172,6 +180,31 @@ export function parsePnpmLockfileImporters(text) {
     }
   }
   return importers;
+}
+
+/**
+ * Each lockfile importer entry must carry that dependency's own specifier and
+ * resolved version. Independent substring matches can accept a swapped pin.
+ */
+export function lockDependencyMatches(
+  lockDependency,
+  specifier,
+  options = {},
+) {
+  if (
+    lockDependency === undefined ||
+    lockDependency.specifier !== specifier ||
+    typeof lockDependency.version !== "string"
+  ) {
+    return false;
+  }
+  if (options.workspace === true) {
+    return lockDependency.version.startsWith("link:");
+  }
+  return (
+    lockDependency.version === specifier ||
+    lockDependency.version.startsWith(`${specifier}(`)
+  );
 }
 
 function gitCommand() {
@@ -265,22 +298,27 @@ async function validatePackage(root, definition, lockfile) {
   }
   for (const section of DEPENDENCY_SECTIONS) {
     for (const [name, version] of Object.entries(manifest[section] ?? {})) {
-      if (!RELEASE_NAMES.has(name)) {
-        continue;
+      const workspace = RELEASE_NAMES.has(name);
+      if (workspace) {
+        const dependency = RELEASE_PACKAGES.find((entry) => entry.name === name);
+        const dependencyManifest = await readJson(
+          join(root, "packages", dependency.directory, "package.json"),
+        );
+        if (version !== dependencyManifest.version) {
+          fail(
+            `${definition.name} must pin ${name} to its exact workspace version`,
+          );
+        }
       }
-      const dependency = RELEASE_PACKAGES.find((entry) => entry.name === name);
-      const dependencyManifest = await readJson(
-        join(root, "packages", dependency.directory, "package.json"),
-      );
-      const lockDependency = lockEntry[section]?.[name];
       if (
-        version !== dependencyManifest.version ||
-        lockDependency?.specifier !== version ||
-        typeof lockDependency?.version !== "string" ||
-        !lockDependency.version.startsWith("link:")
+        !lockDependencyMatches(lockEntry[section]?.[name], version, {
+          workspace,
+        })
       ) {
         fail(
-          `${definition.name} must pin ${name} to its exact workspace version`,
+          workspace
+            ? `${definition.name} must pin ${name} to its exact workspace version`
+            : `${definition.name} ${name}@${version} is not synchronized with pnpm-lock.yaml`,
         );
       }
     }

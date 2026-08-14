@@ -3,7 +3,8 @@
 There are exactly two publication paths:
 
 1. a one-time manual bootstrap of `@pegma/scheduler@0.0.0` and
-   `@pegma/scheduler-cloudflare@0.0.0` (**done**; dist-tag `bootstrap` only); and
+   `@pegma/scheduler-cloudflare@0.0.0` (**done**; dist-tag `bootstrap` only;
+   that immutable pre-pnpm tag remains an npm-era receipt); and
 2. every advertised release, beginning with `0.1.0` (**published**), through the
    environment-protected GitHub OIDC workflow in
    [`.github/workflows/publish.yml`](../.github/workflows/publish.yml).
@@ -34,8 +35,8 @@ before tagging. Never unpublish and reuse a version.
 
 ## Normal OIDC releases (`0.1.0` and later)
 
-1. Land a reviewed PR that sets both public packages (and lockfile / fixture
-   pins) to the same stable version, and updates release notes.
+1. Land a reviewed PR that sets both public packages (and `pnpm-lock.yaml` /
+   fixture pins) to the same stable version, and updates release notes.
 2. After merge to `main`, create a **protected signed annotated** tag:
 
    ```sh
@@ -54,8 +55,11 @@ before tagging. Never unpublish and reuse a version.
 4. The workflow:
    - verifies the signed tag against `RELEASE_ALLOWED_SIGNERS`;
    - runs the full gate;
-   - packs both packages with `pnpm run release:pack`;
-   - publishes exact tarballs with provenance via OIDC (`pnpm run release:publish`).
+   - packs both packages with `pnpm run release:pack` (npm CLI for `pack` /
+     registry `view`);
+   - publishes exact tarballs with provenance via OIDC
+     (`node scripts/release-packages.mjs publish`). The OIDC job does not
+     download Corepack pnpm.
 
 Local helpers (never substitute for the OIDC lane for advertised releases):
 

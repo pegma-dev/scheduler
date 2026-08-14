@@ -6,6 +6,7 @@ import {
   RELEASE_PACKAGES,
   decidePublication,
   isNormalReleaseVersion,
+  lockDependencyMatches,
   parseArguments,
   parsePnpmLockfileImporters,
 } from "../scripts/release-packages.mjs";
@@ -120,6 +121,66 @@ packages:
       specifier: "0.1.0",
       version: "link:../scheduler",
     });
+    expect(
+      lockDependencyMatches(
+        live["packages/scheduler"]?.dependencies?.["@pegma/spine"],
+        "0.1.2",
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        live["packages/scheduler"]?.dependencies?.["@pegma/storage-core"],
+        "0.4.0",
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        live["packages/scheduler-cloudflare"]?.dependencies?.[
+          "@pegma/scheduler"
+        ],
+        "0.1.0",
+        { workspace: true },
+      ),
+    ).toBe(true);
+  });
+
+  it("matches each lockfile dependency to its own specifier and resolved version", () => {
+    const spine = { specifier: "0.1.2", version: "0.1.2" };
+    const storage = { specifier: "0.4.0", version: "0.4.0" };
+    expect(lockDependencyMatches(spine, "0.1.2")).toBe(true);
+    expect(lockDependencyMatches(storage, "0.4.0")).toBe(true);
+    expect(lockDependencyMatches(spine, "0.4.0")).toBe(false);
+    expect(lockDependencyMatches(storage, "0.1.2")).toBe(false);
+    expect(
+      lockDependencyMatches({ specifier: "0.1.2", version: "999.0.0" }, "0.1.2"),
+    ).toBe(false);
+    expect(
+      lockDependencyMatches(
+        { specifier: "0.1.0", version: "link:../scheduler" },
+        "0.1.0",
+        { workspace: true },
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        { specifier: "0.1.0", version: "0.1.0" },
+        "0.1.0",
+        { workspace: true },
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps pack, registry view, and publish on the npm CLI", () => {
+    const source = readFileSync(
+      join(process.cwd(), "scripts/release-packages.mjs"),
+      "utf8",
+    );
+    expect(source).not.toMatch(
+      /(?:npmExecPath|npm_execpath)\s*(?:\?\?|===|!==)/u,
+    );
+    expect(source).toMatch(
+      /function runNpm\([\s\S]*?process\.platform === "win32" \? "npm\.cmd" : "npm"/u,
+    );
   });
 
   it("skips a byte-identical existing version", () => {
