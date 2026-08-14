@@ -29,7 +29,7 @@ npm trusted publishers for both packages must identify:
 - environment `npm-publish`
 - allowed action `npm publish`
 
-Run `npm run format:check`, `npm run check`, and `npm test` on Node 22 and 24
+Run `pnpm run format:check`, `pnpm run check`, and `pnpm test` on Node 22 and 24
 before tagging. Never unpublish and reuse a version.
 
 ## Normal OIDC releases (`0.1.0` and later)
@@ -54,14 +54,14 @@ before tagging. Never unpublish and reuse a version.
 4. The workflow:
    - verifies the signed tag against `RELEASE_ALLOWED_SIGNERS`;
    - runs the full gate;
-   - packs both packages with `npm run release:pack`;
-   - publishes exact tarballs with provenance via OIDC (`npm run release:publish`).
+   - packs both packages with `pnpm run release:pack`;
+   - publishes exact tarballs with provenance via OIDC (`pnpm run release:publish`).
 
 Local helpers (never substitute for the OIDC lane for advertised releases):
 
 ```sh
-npm run release:check
-npm run release:pack -- -- --output .release
+pnpm run release:check
+pnpm run release:pack -- --output .release
 # release:publish is restricted to the GitHub release workflow
 ```
 

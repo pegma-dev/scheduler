@@ -64,7 +64,7 @@ export default {
 ## Local development
 
 ```sh
-npx wrangler dev --test-scheduled --persist-to .wrangler/state
+pnpm dlx wrangler dev --test-scheduled --persist-to .wrangler/state
 curl "http://127.0.0.1:8787/__scheduled?cron=*+*+*+*+*"
 ```
 

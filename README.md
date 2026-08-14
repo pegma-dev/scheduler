@@ -32,16 +32,16 @@ The first consumers are:
 ## Development
 
 ```sh
-npm ci
-npm run format:check
-npm run check
-npm test
+pnpm install --frozen-lockfile
+pnpm run format:check
+pnpm run check
+pnpm test
 # or separately:
-npm run test:node
-npm run test:d1
+pnpm run test:node
+pnpm run test:d1
 ```
 
 Consumer fixtures (Ops Hub, Support Desk, Azure Functions shapes) live under
-[fixtures/](fixtures/) and run as part of `npm test`.
+[fixtures/](fixtures/) and run as part of `pnpm test`.
 
 See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the delivery sequence.

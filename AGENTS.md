@@ -57,7 +57,7 @@ and a `tsconfig.json` that excludes `src/**/*.test.ts`.
 ## Workflow
 
 Work on a `claude/*` branch and open a pull request. The gate is
-`npm run format:check`, `npm run check`, and `npm test` on Node 22 and 24.
+`pnpm run format:check`, `pnpm run check`, and `pnpm test` on Node 22 and 24.
 
 Publishing remains disabled until the runner, real D1/Azure verification, and
 both consumer fixtures meet the exit criteria in `docs/PROJECT_PLAN.md`.

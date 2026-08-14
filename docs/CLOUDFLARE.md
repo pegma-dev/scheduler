@@ -41,7 +41,7 @@ closed.
 Run Wrangler with scheduled-event testing enabled:
 
 ```sh
-npx wrangler dev --test-scheduled --persist-to .wrangler/state
+pnpm dlx wrangler dev --test-scheduled --persist-to .wrangler/state
 ```
 
 Wrangler exposes `/__scheduled`. A test or Docker-side timer can invoke it:
@@ -72,7 +72,7 @@ survive restarts. Do not treat Memory Store as durability evidence.
 Run the D1 suite alone:
 
 ```sh
-npm run test:d1
+pnpm run test:d1
 ```
 
 References:
