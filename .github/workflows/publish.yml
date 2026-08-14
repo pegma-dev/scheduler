@@ -113,9 +113,6 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      - name: Enable Corepack
-        run: corepack enable
-
       - name: Use the reviewed npm release
         run: npm install --global npm@11.18.0
 
@@ -126,4 +123,4 @@ jobs:
           path: .release
 
       - name: Publish verified prepared tarballs
-        run: pnpm run release:publish -- --expected-release-commit "${RELEASE_COMMIT}" --manifest .release/package-manifest.json
+        run: node scripts/release-packages.mjs publish --expected-release-commit "${RELEASE_COMMIT}" --manifest .release/package-manifest.json

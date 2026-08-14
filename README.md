@@ -31,7 +31,11 @@ The first consumers are:
 
 ## Development
 
+Use Node.js 22 or 24. Those releases bundle Corepack; official Node 25+
+builds do not, so they are not a documented local toolchain.
+
 ```sh
+corepack enable
 pnpm install --frozen-lockfile
 pnpm run format:check
 pnpm run check

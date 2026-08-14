@@ -87,9 +87,17 @@ function run(command, arguments_, options = {}) {
   return result;
 }
 
+/** `pnpm run` sets npm_execpath to pnpm; pack/view/publish must still be npm. */
+function npmEnvironment(env = process.env) {
+  const isolated = { ...env };
+  delete isolated.npm_execpath;
+  return isolated;
+}
+
 function runNpm(arguments_, options = {}) {
   return run(process.platform === "win32" ? "npm.cmd" : "npm", arguments_, {
     ...options,
+    env: npmEnvironment(options.env ?? process.env),
     shell: process.platform === "win32",
   });
 }
@@ -101,14 +109,14 @@ function runPnpm(arguments_, options = {}) {
   });
 }
 
-function unquoteYamlKey(key) {
+function unquoteYamlScalar(value) {
   if (
-    (key.startsWith("'") && key.endsWith("'")) ||
-    (key.startsWith('"') && key.endsWith('"'))
+    (value.startsWith("'") && value.endsWith("'")) ||
+    (value.startsWith('"') && value.endsWith('"'))
   ) {
-    return key.slice(1, -1);
+    return value.slice(1, -1);
   }
-  return key;
+  return value;
 }
 
 /** Reads pnpm-lock.yaml importers without a YAML dependency. */
@@ -135,7 +143,7 @@ export function parsePnpmLockfileImporters(text) {
 
     const importerMatch = /^ {2}(\S[^:]*):$/u.exec(line);
     if (importerMatch !== null) {
-      currentPath = unquoteYamlKey(importerMatch[1]);
+      currentPath = unquoteYamlScalar(importerMatch[1]);
       importers[currentPath] = {};
       currentSection = null;
       currentDep = null;
@@ -155,7 +163,7 @@ export function parsePnpmLockfileImporters(text) {
 
     const depMatch = /^ {6}([^:]+):$/u.exec(line);
     if (depMatch !== null && currentPath !== null && currentSection !== null) {
-      currentDep = unquoteYamlKey(depMatch[1]);
+      currentDep = unquoteYamlScalar(depMatch[1]);
       importers[currentPath][currentSection][currentDep] = {};
       continue;
     }
@@ -168,10 +176,120 @@ export function parsePnpmLockfileImporters(text) {
       currentDep !== null
     ) {
       importers[currentPath][currentSection][currentDep][fieldMatch[1]] =
-        fieldMatch[2];
+        unquoteYamlScalar(fieldMatch[2]);
     }
   }
   return importers;
+}
+
+function parseSemverTriple(version) {
+  const match = STABLE_SEMVER.exec(version);
+  if (match === null) {
+    return null;
+  }
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function leadingResolvedSemver(version) {
+  const full = /^(\d+)\.(\d+)\.(\d+)/u.exec(version);
+  if (full !== null) {
+    return [Number(full[1]), Number(full[2]), Number(full[3])];
+  }
+  const majorMinor = /^(\d+)\.(\d+)(?![.\d])/u.exec(version);
+  if (majorMinor !== null) {
+    return [Number(majorMinor[1]), Number(majorMinor[2]), 0];
+  }
+  const major = /^(\d+)(?![.\d])/u.exec(version);
+  if (major !== null) {
+    return [Number(major[1]), 0, 0];
+  }
+  return null;
+}
+
+function compareSemver(left, right) {
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] !== right[index]) {
+      return left[index] < right[index] ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
+function caretUpperBound([major, minor, patch]) {
+  if (major > 0) {
+    return [major + 1, 0, 0];
+  }
+  if (minor > 0) {
+    return [0, minor + 1, 0];
+  }
+  return [0, 0, patch + 1];
+}
+
+function tildeUpperBound([major, minor]) {
+  return [major, minor + 1, 0];
+}
+
+function inHalfOpenRange(resolved, lower, upper) {
+  return (
+    compareSemver(resolved, lower) >= 0 && compareSemver(resolved, upper) < 0
+  );
+}
+
+/** Exact pins must match; ranges accept a resolved version in the specifier. */
+export function resolvedVersionSatisfies(version, specifier) {
+  if (STABLE_SEMVER.test(specifier)) {
+    return version === specifier || version.startsWith(`${specifier}(`);
+  }
+  if (specifier === "*" || specifier === "x" || specifier === "X") {
+    return leadingResolvedSemver(version) !== null;
+  }
+  const resolved = leadingResolvedSemver(version);
+  if (resolved === null) {
+    return false;
+  }
+  if (specifier.startsWith("^")) {
+    const lower = parseSemverTriple(specifier.slice(1));
+    return (
+      lower !== null && inHalfOpenRange(resolved, lower, caretUpperBound(lower))
+    );
+  }
+  if (specifier.startsWith("~")) {
+    const lower = parseSemverTriple(specifier.slice(1));
+    return (
+      lower !== null && inHalfOpenRange(resolved, lower, tildeUpperBound(lower))
+    );
+  }
+  const majorOnly = /^(\d+)$/u.exec(specifier);
+  if (majorOnly !== null) {
+    const lower = [Number(majorOnly[1]), 0, 0];
+    return inHalfOpenRange(resolved, lower, [lower[0] + 1, 0, 0]);
+  }
+  const majorMinor = /^(\d+)\.(\d+)$/u.exec(specifier);
+  if (majorMinor !== null) {
+    const lower = [Number(majorMinor[1]), Number(majorMinor[2]), 0];
+    return inHalfOpenRange(resolved, lower, tildeUpperBound(lower));
+  }
+  return false;
+}
+
+/**
+ * Each lockfile importer entry must carry that dependency's own specifier and
+ * a resolved version that satisfies it. Independent substring matches can
+ * accept a swapped pin; exact-equality on ranges rejects a valid lockfile.
+ */
+export function lockDependencyMatches(lockDependency, specifier, options = {}) {
+  if (
+    lockDependency === undefined ||
+    unquoteYamlScalar(lockDependency.specifier ?? "") !== specifier ||
+    typeof lockDependency.version !== "string"
+  ) {
+    return false;
+  }
+  const version = unquoteYamlScalar(lockDependency.version);
+  if (options.workspace === true) {
+    return version.startsWith("link:");
+  }
+  return resolvedVersionSatisfies(version, specifier);
 }
 
 function gitCommand() {
@@ -265,22 +383,29 @@ async function validatePackage(root, definition, lockfile) {
   }
   for (const section of DEPENDENCY_SECTIONS) {
     for (const [name, version] of Object.entries(manifest[section] ?? {})) {
-      if (!RELEASE_NAMES.has(name)) {
-        continue;
+      const workspace = RELEASE_NAMES.has(name);
+      if (workspace) {
+        const dependency = RELEASE_PACKAGES.find(
+          (entry) => entry.name === name,
+        );
+        const dependencyManifest = await readJson(
+          join(root, "packages", dependency.directory, "package.json"),
+        );
+        if (version !== dependencyManifest.version) {
+          fail(
+            `${definition.name} must pin ${name} to its exact workspace version`,
+          );
+        }
       }
-      const dependency = RELEASE_PACKAGES.find((entry) => entry.name === name);
-      const dependencyManifest = await readJson(
-        join(root, "packages", dependency.directory, "package.json"),
-      );
-      const lockDependency = lockEntry[section]?.[name];
       if (
-        version !== dependencyManifest.version ||
-        lockDependency?.specifier !== version ||
-        typeof lockDependency?.version !== "string" ||
-        !lockDependency.version.startsWith("link:")
+        !lockDependencyMatches(lockEntry[section]?.[name], version, {
+          workspace,
+        })
       ) {
         fail(
-          `${definition.name} must pin ${name} to its exact workspace version`,
+          workspace
+            ? `${definition.name} must pin ${name} to its exact workspace version`
+            : `${definition.name} ${name}@${version} is not synchronized with pnpm-lock.yaml`,
         );
       }
     }

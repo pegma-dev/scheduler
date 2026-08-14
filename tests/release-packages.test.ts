@@ -6,8 +6,10 @@ import {
   RELEASE_PACKAGES,
   decidePublication,
   isNormalReleaseVersion,
+  lockDependencyMatches,
   parseArguments,
   parsePnpmLockfileImporters,
+  resolvedVersionSatisfies,
 } from "../scripts/release-packages.mjs";
 
 describe("release package metadata", () => {
@@ -86,6 +88,19 @@ describe("release package metadata", () => {
       '@pegma/scheduler':
         specifier: 0.1.0
         version: link:../scheduler
+    peerDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^5.20260731.1
+        version: 5.20260814.1
+
+  packages/quoted:
+    dependencies:
+      b:
+        specifier: '1'
+        version: '1'
+      wildcard:
+        specifier: '*'
+        version: 1.0.0
 
 packages:
   prettier@3.9.6:
@@ -95,6 +110,7 @@ packages:
       ".",
       "packages/scheduler",
       "packages/scheduler-cloudflare",
+      "packages/quoted",
     ]);
     expect(importers["packages/scheduler"]).toEqual({
       dependencies: {
@@ -110,6 +126,18 @@ packages:
       specifier: "0.1.0",
       version: "link:../scheduler",
     });
+    expect(
+      importers["packages/scheduler-cloudflare"]?.peerDependencies?.[
+        "@cloudflare/workers-types"
+      ],
+    ).toEqual({
+      specifier: "^5.20260731.1",
+      version: "5.20260814.1",
+    });
+    expect(importers["packages/quoted"]?.dependencies).toEqual({
+      b: { specifier: "1", version: "1" },
+      wildcard: { specifier: "*", version: "1.0.0" },
+    });
 
     const live = parsePnpmLockfileImporters(
       readFileSync(join(process.cwd(), "pnpm-lock.yaml"), "utf8"),
@@ -120,6 +148,131 @@ packages:
       specifier: "0.1.0",
       version: "link:../scheduler",
     });
+    expect(
+      lockDependencyMatches(
+        live["packages/scheduler"]?.dependencies?.["@pegma/spine"],
+        "0.1.2",
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        live["packages/scheduler"]?.dependencies?.["@pegma/storage-core"],
+        "0.4.0",
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        live["packages/scheduler-cloudflare"]?.dependencies?.[
+          "@pegma/scheduler"
+        ],
+        "0.1.0",
+        { workspace: true },
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(importers["packages/quoted"]?.dependencies?.b, "1"),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        importers["packages/quoted"]?.dependencies?.wildcard,
+        "*",
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        importers["packages/scheduler-cloudflare"]?.peerDependencies?.[
+          "@cloudflare/workers-types"
+        ],
+        "^5.20260731.1",
+      ),
+    ).toBe(true);
+  });
+
+  it("matches each lockfile dependency to its own specifier and resolved version", () => {
+    const spine = { specifier: "0.1.2", version: "0.1.2" };
+    const storage = { specifier: "0.4.0", version: "0.4.0" };
+    expect(lockDependencyMatches(spine, "0.1.2")).toBe(true);
+    expect(lockDependencyMatches(storage, "0.4.0")).toBe(true);
+    expect(lockDependencyMatches(spine, "0.4.0")).toBe(false);
+    expect(lockDependencyMatches(storage, "0.1.2")).toBe(false);
+    expect(
+      lockDependencyMatches(
+        { specifier: "0.1.2", version: "999.0.0" },
+        "0.1.2",
+      ),
+    ).toBe(false);
+    expect(
+      lockDependencyMatches(
+        { specifier: "0.1.0", version: "link:../scheduler" },
+        "0.1.0",
+        { workspace: true },
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches({ specifier: "0.1.0", version: "0.1.0" }, "0.1.0", {
+        workspace: true,
+      }),
+    ).toBe(false);
+    expect(
+      lockDependencyMatches(
+        { specifier: "^1.2.0", version: "1.2.3" },
+        "^1.2.0",
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        { specifier: "^1.2.0", version: "2.0.0" },
+        "^1.2.0",
+      ),
+    ).toBe(false);
+    expect(
+      lockDependencyMatches(
+        { specifier: "^0.18.8", version: "0.18.8(@x@1.0.0)" },
+        "^0.18.8",
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        { specifier: "~1.2.0", version: "1.2.5" },
+        "~1.2.0",
+      ),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches(
+        { specifier: "~1.2.0", version: "1.3.0" },
+        "~1.2.0",
+      ),
+    ).toBe(false);
+    expect(
+      lockDependencyMatches(
+        { specifier: "^5.20260731.1", version: "5.20260814.1" },
+        "^5.20260731.1",
+      ),
+    ).toBe(true);
+    expect(resolvedVersionSatisfies("1.2.3", "^1.2.0")).toBe(true);
+    expect(resolvedVersionSatisfies("0.0.2", "^0.0.1")).toBe(false);
+    expect(lockDependencyMatches({ specifier: "1", version: "1" }, "1")).toBe(
+      true,
+    );
+    expect(
+      lockDependencyMatches({ specifier: "'1'", version: "'1'" }, "1"),
+    ).toBe(true);
+    expect(
+      lockDependencyMatches({ specifier: "*", version: "1.0.0" }, "*"),
+    ).toBe(true);
+  });
+
+  it("keeps pack, registry view, and publish on the npm CLI", () => {
+    const source = readFileSync(
+      join(process.cwd(), "scripts/release-packages.mjs"),
+      "utf8",
+    );
+    expect(source).not.toMatch(
+      /(?:npmExecPath|npm_execpath)\s*(?:\?\?|===|!==)/u,
+    );
+    expect(source).toMatch(
+      /function runNpm\([\s\S]*?process\.platform === "win32" \? "npm\.cmd" : "npm"/u,
+    );
   });
 
   it("skips a byte-identical existing version", () => {

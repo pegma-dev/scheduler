@@ -1,8 +1,11 @@
 # Contributing to Scheduler
 
-Scheduler requires Node.js 22 or newer.
+Scheduler is developed on Node.js 22 and 24 (the CI gate). Those releases
+bundle Corepack. Official Node 25+ builds do not, so they are not a
+documented local toolchain.
 
 ```sh
+corepack enable
 pnpm install --frozen-lockfile
 pnpm run format:check
 pnpm run check
