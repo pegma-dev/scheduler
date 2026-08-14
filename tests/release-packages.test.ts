@@ -152,7 +152,10 @@ packages:
     expect(lockDependencyMatches(spine, "0.4.0")).toBe(false);
     expect(lockDependencyMatches(storage, "0.1.2")).toBe(false);
     expect(
-      lockDependencyMatches({ specifier: "0.1.2", version: "999.0.0" }, "0.1.2"),
+      lockDependencyMatches(
+        { specifier: "0.1.2", version: "999.0.0" },
+        "0.1.2",
+      ),
     ).toBe(false);
     expect(
       lockDependencyMatches(
@@ -162,11 +165,9 @@ packages:
       ),
     ).toBe(true);
     expect(
-      lockDependencyMatches(
-        { specifier: "0.1.0", version: "0.1.0" },
-        "0.1.0",
-        { workspace: true },
-      ),
+      lockDependencyMatches({ specifier: "0.1.0", version: "0.1.0" }, "0.1.0", {
+        workspace: true,
+      }),
     ).toBe(false);
   });
 

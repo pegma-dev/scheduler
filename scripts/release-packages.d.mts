@@ -46,9 +46,7 @@ export function parsePnpmLockfileImporters(
 >;
 
 export function lockDependencyMatches(
-  lockDependency:
-    | { specifier?: string; version?: string }
-    | undefined,
+  lockDependency: { specifier?: string; version?: string } | undefined,
   specifier: string,
   options?: { workspace?: boolean },
 ): boolean;

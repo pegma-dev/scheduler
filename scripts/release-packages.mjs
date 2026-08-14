@@ -186,11 +186,7 @@ export function parsePnpmLockfileImporters(text) {
  * Each lockfile importer entry must carry that dependency's own specifier and
  * resolved version. Independent substring matches can accept a swapped pin.
  */
-export function lockDependencyMatches(
-  lockDependency,
-  specifier,
-  options = {},
-) {
+export function lockDependencyMatches(lockDependency, specifier, options = {}) {
   if (
     lockDependency === undefined ||
     lockDependency.specifier !== specifier ||
@@ -300,7 +296,9 @@ async function validatePackage(root, definition, lockfile) {
     for (const [name, version] of Object.entries(manifest[section] ?? {})) {
       const workspace = RELEASE_NAMES.has(name);
       if (workspace) {
-        const dependency = RELEASE_PACKAGES.find((entry) => entry.name === name);
+        const dependency = RELEASE_PACKAGES.find(
+          (entry) => entry.name === name,
+        );
         const dependencyManifest = await readJson(
           join(root, "packages", dependency.directory, "package.json"),
         );
