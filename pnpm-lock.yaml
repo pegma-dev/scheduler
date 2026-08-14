@@ -17,12 +17,18 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20260731.1
         version: 5.20260814.1
+      '@pegma/spine':
+        specifier: 0.1.2
+        version: 0.1.2
       '@pegma/storage-azure-tables':
         specifier: ^0.4.0
         version: 0.4.0
       '@pegma/storage-cloudflare-d1':
         specifier: 0.4.1
         version: 0.4.1
+      '@pegma/storage-core':
+        specifier: 0.4.0
+        version: 0.4.0
       '@types/node':
         specifier: ^26.1.1
         version: 26.2.0

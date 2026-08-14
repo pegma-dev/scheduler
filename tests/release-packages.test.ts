@@ -64,9 +64,38 @@ describe("release package metadata", () => {
   });
 
   it("reads workspace inventory and link pins from pnpm-lock.yaml", () => {
-    const importers = parsePnpmLockfileImporters(
-      readFileSync(join(process.cwd(), "pnpm-lock.yaml"), "utf8"),
-    );
+    const importers = parsePnpmLockfileImporters(`importers:
+
+  .:
+    devDependencies:
+      prettier:
+        specifier: ^3.9.6
+        version: 3.9.6
+
+  packages/scheduler:
+    dependencies:
+      '@pegma/spine':
+        specifier: 0.1.2
+        version: 0.1.2
+      '@pegma/storage-core':
+        specifier: 0.4.0
+        version: 0.4.0
+
+  packages/scheduler-cloudflare:
+    dependencies:
+      '@pegma/scheduler':
+        specifier: 0.1.0
+        version: link:../scheduler
+
+packages:
+  prettier@3.9.6:
+    resolution: {integrity: sha512-example}
+`);
+    expect(Object.keys(importers)).toEqual([
+      ".",
+      "packages/scheduler",
+      "packages/scheduler-cloudflare",
+    ]);
     expect(importers["packages/scheduler"]).toEqual({
       dependencies: {
         "@pegma/spine": { specifier: "0.1.2", version: "0.1.2" },
@@ -77,6 +106,16 @@ describe("release package metadata", () => {
       importers["packages/scheduler-cloudflare"]?.dependencies?.[
         "@pegma/scheduler"
       ],
+    ).toEqual({
+      specifier: "0.1.0",
+      version: "link:../scheduler",
+    });
+
+    const live = parsePnpmLockfileImporters(
+      readFileSync(join(process.cwd(), "pnpm-lock.yaml"), "utf8"),
+    );
+    expect(
+      live["packages/scheduler-cloudflare"]?.dependencies?.["@pegma/scheduler"],
     ).toEqual({
       specifier: "0.1.0",
       version: "link:../scheduler",

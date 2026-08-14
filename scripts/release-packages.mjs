@@ -133,7 +133,7 @@ export function parsePnpmLockfileImporters(text) {
       continue;
     }
 
-    const importerMatch = /^ {2}([^:]+):$/u.exec(line);
+    const importerMatch = /^ {2}(\S[^:]*):$/u.exec(line);
     if (importerMatch !== null) {
       currentPath = unquoteYamlKey(importerMatch[1]);
       importers[currentPath] = {};
