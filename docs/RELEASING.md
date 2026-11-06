@@ -53,12 +53,18 @@ before tagging. Never unpublish and reuse a version.
    ```
 
 4. The workflow:
-   - verifies the signed tag against `RELEASE_ALLOWED_SIGNERS`;
-   - runs the full gate;
-   - packs both packages with `pnpm run release:pack` (npm CLI for `pack` /
-     registry `view`);
-   - publishes exact tarballs with provenance via OIDC
-     (`node scripts/release-packages.mjs publish`). The OIDC job does not
+   - `prepare` authenticates the signed tag in a temporary bare repository
+     before checkout, checks out the immutable release commit, runs the full
+     gate, packs both packages, validates their archived manifests, and uploads
+     the sealed `.release` inventory;
+   - `smoke` downloads that inventory without a repository checkout, installs
+     the tarballs with lifecycle scripts disabled, verifies the recorded
+     manifest and package digests, and imports every declared package export;
+   - `publish` authenticates the tag again in a fresh bare repository, downloads
+     the sealed inventory without checking out source, anchors the manifest to
+     the SHA-256 output from `prepare`, verifies the tarball digests, and
+     publishes the exact tarballs with provenance from an empty temporary
+     working directory. The OIDC job does not run repository scripts or
      download Corepack pnpm.
 
 Local helpers (never substitute for the OIDC lane for advertised releases):

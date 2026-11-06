@@ -81,6 +81,16 @@ export function prepareRelease(
   options?: ReleaseCommandOptions,
 ): Promise<{ manifestPath: string; manifest: unknown }>;
 
+export function validatePackedTarball(
+  tarballPath: string,
+  expectedManifest: PublicPackageManifest,
+): Promise<PublicPackageManifest>;
+
+export function verifyReleaseInventory(
+  directory: string,
+  expectedTarballs: readonly string[],
+): Promise<void>;
+
 export function publishPreparedRelease(
   options?: ReleaseCommandOptions,
 ): Promise<void>;
