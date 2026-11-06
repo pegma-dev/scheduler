@@ -1,17 +1,16 @@
 import { spawnSync } from "node:child_process";
 import { createHash, timingSafeEqual } from "node:crypto";
 import {
-  mkdtemp,
+  lstat,
   mkdir,
   readFile,
   readdir,
-  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync } from "node:zlib";
 
 const REPOSITORY_URL = "git+https://github.com/pegma-dev/scheduler.git";
 const NODE_RANGE = ">=22";
@@ -107,6 +106,21 @@ function runPnpm(arguments_, options = {}) {
     ...options,
     shell: process.platform === "win32",
   });
+}
+
+function parseTrailingJson(text, description) {
+  for (
+    let index = text.lastIndexOf("[");
+    index >= 0;
+    index = text.lastIndexOf("[", index - 1)
+  ) {
+    try {
+      return JSON.parse(text.slice(index).trim());
+    } catch {
+      // Package lifecycle output can precede npm's final JSON document.
+    }
+  }
+  fail(`${description} did not return valid JSON`);
 }
 
 function unquoteYamlScalar(value) {
@@ -298,22 +312,120 @@ function gitCommand() {
 
 function hashTarball(bytes) {
   return {
+    sha256: createHash("sha256").update(bytes).digest("hex"),
     shasum: createHash("sha1").update(bytes).digest("hex"),
     integrity: `sha512-${createHash("sha512").update(bytes).digest("base64")}`,
   };
 }
 
-function exportSpecifiers(manifest) {
-  if (
-    manifest.exports === null ||
-    typeof manifest.exports !== "object" ||
-    Array.isArray(manifest.exports)
-  ) {
-    fail(`${manifest.name} must declare object-form exports`);
+function tarString(header, offset, length) {
+  const bytes = header.subarray(offset, offset + length);
+  const end = bytes.indexOf(0);
+  return bytes.subarray(0, end === -1 ? bytes.length : end).toString("utf8");
+}
+
+function readTarEntries(bytes) {
+  const archive = gunzipSync(bytes);
+  const entries = new Map();
+  for (let offset = 0; offset + 512 <= archive.length;) {
+    const header = archive.subarray(offset, offset + 512);
+    if (header.every((byte) => byte === 0)) {
+      break;
+    }
+    const name = tarString(header, 0, 100);
+    const prefix = tarString(header, 345, 155);
+    const path = prefix === "" ? name : `${prefix}/${name}`;
+    const sizeText = tarString(header, 124, 12).trim();
+    const size = sizeText === "" ? 0 : Number.parseInt(sizeText, 8);
+    if (!Number.isSafeInteger(size) || size < 0) {
+      fail(`packed archive has an invalid entry size for ${path}`);
+    }
+    const type = header[156];
+    const contentStart = offset + 512;
+    const contentEnd = contentStart + size;
+    if (contentEnd > archive.length) {
+      fail(`packed archive entry extends past the archive: ${path}`);
+    }
+    if (type === 0 || type === 48) {
+      entries.set(path, archive.subarray(contentStart, contentEnd));
+    }
+    offset = contentStart + Math.ceil(size / 512) * 512;
   }
-  return Object.keys(manifest.exports).map((key) =>
-    key === "." ? manifest.name : `${manifest.name}${key.slice(1)}`,
-  );
+  return entries;
+}
+
+function pegmaPins(manifest) {
+  const pins = {};
+  for (const section of DEPENDENCY_SECTIONS) {
+    for (const [name, version] of Object.entries(manifest[section] ?? {})) {
+      if (name.startsWith("@pegma/")) {
+        pins[`${section}:${name}`] = version;
+      }
+    }
+  }
+  return pins;
+}
+
+export async function validatePackedTarball(tarballPath, expectedManifest) {
+  const entries = readTarEntries(await readFile(tarballPath));
+  for (const required of [
+    "package/package.json",
+    "package/README.md",
+    "package/LICENSE",
+  ]) {
+    if (!entries.has(required)) {
+      fail(`${expectedManifest.name} packed archive is missing ${required}`);
+    }
+  }
+  let packedManifest;
+  try {
+    packedManifest = JSON.parse(
+      entries.get("package/package.json").toString("utf8"),
+    );
+  } catch {
+    fail(`${expectedManifest.name} packed package.json is not valid JSON`);
+  }
+  if (
+    packedManifest.name !== expectedManifest.name ||
+    packedManifest.version !== expectedManifest.version
+  ) {
+    fail(`${expectedManifest.name} packed name and version must match source`);
+  }
+  for (const lifecycle of ["preinstall", "install", "postinstall"]) {
+    if (Object.hasOwn(packedManifest.scripts ?? {}, lifecycle)) {
+      fail(`${expectedManifest.name} packed manifest has an install hook`);
+    }
+  }
+  const packedPins = pegmaPins(packedManifest);
+  if (
+    Object.values(packedPins).some(
+      (version) => typeof version !== "string" || !STABLE_SEMVER.test(version),
+    ) ||
+    !sameJson(packedPins, pegmaPins(expectedManifest))
+  ) {
+    fail(
+      `${expectedManifest.name} packed Pegma pins must match source exactly`,
+    );
+  }
+  return packedManifest;
+}
+
+export async function verifyReleaseInventory(directory, expectedTarballs) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const expected = ["package-manifest.json", ...expectedTarballs].sort();
+  const actual = entries.map(({ name }) => name).sort();
+  if (
+    !sameJson(actual, expected) ||
+    entries.some((entry) => !entry.isFile() || entry.name.startsWith("."))
+  ) {
+    fail("release output inventory does not match the prepared package set");
+  }
+  for (const entry of entries) {
+    const metadata = await lstat(join(directory, entry.name));
+    if (!metadata.isFile() || metadata.isSymbolicLink()) {
+      fail("release output entries must be regular files");
+    }
+  }
 }
 
 function exportTargets(value) {
@@ -595,42 +707,6 @@ function verifyPackedFiles(manifest, files) {
   }
 }
 
-async function smokeTestTarballs(root, packageRecords) {
-  const directory = await mkdtemp(join(tmpdir(), "pegma-release-smoke-"));
-  try {
-    await writeFile(
-      join(directory, "package.json"),
-      '{"name":"pegma-release-smoke","private":true,"type":"module"}\n',
-    );
-    runNpm(
-      [
-        "install",
-        "--ignore-scripts",
-        "--no-audit",
-        "--no-fund",
-        "--package-lock=false",
-        ...packageRecords.map(({ tarballPath }) => tarballPath),
-      ],
-      { cwd: directory, capture: true },
-    );
-    for (const { manifest } of packageRecords) {
-      for (const specifier of exportSpecifiers(manifest)) {
-        run(
-          process.execPath,
-          [
-            "--input-type=module",
-            "--eval",
-            `await import(${JSON.stringify(specifier)})`,
-          ],
-          { cwd: directory, capture: true },
-        );
-      }
-    }
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-}
-
 function queryRegistryIntegrity(name, version) {
   const spec = `${name}@${version}`;
   const result = runNpm(["view", spec, "dist.integrity", "--json"], {
@@ -697,7 +773,7 @@ export async function prepareRelease(options = {}) {
       ],
       { cwd: root, capture: true },
     );
-    const [packed] = JSON.parse(result.stdout);
+    const [packed] = parseTrailingJson(result.stdout, "npm pack");
     if (
       packed?.name !== definition.name ||
       packed?.version !== manifest.version ||
@@ -708,6 +784,7 @@ export async function prepareRelease(options = {}) {
     }
     verifyPackedFiles(manifest, packed.files);
     const tarballPath = join(output, basename(packed.filename));
+    await validatePackedTarball(tarballPath, manifest);
     const hashes = hashTarball(await readFile(tarballPath));
     if (
       !safeEqual(hashes.integrity, packed.integrity) ||
@@ -721,6 +798,7 @@ export async function prepareRelease(options = {}) {
       directory: definition.directory,
       tarball: basename(tarballPath),
       tarballPath,
+      sha256: hashes.sha256,
       integrity: hashes.integrity,
       shasum: hashes.shasum,
       publish: tagVersion === undefined || manifest.version === tagVersion,
@@ -730,8 +808,6 @@ export async function prepareRelease(options = {}) {
       manifest,
     });
   }
-  await smokeTestTarballs(root, records);
-
   if (releaseTag !== undefined) {
     for (const record of records.filter(({ publish }) => !publish)) {
       const registryIntegrity = queryRegistryIntegrity(
@@ -759,6 +835,10 @@ export async function prepareRelease(options = {}) {
   };
   const manifestPath = join(output, "package-manifest.json");
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  await verifyReleaseInventory(
+    output,
+    records.map(({ tarball }) => tarball),
+  );
   return { manifestPath, manifest };
 }
 
@@ -787,6 +867,10 @@ async function verifyPreparedManifest(manifestPath) {
   if (!manifest.packages.some(({ publish }) => publish)) {
     fail("prepared package manifest has no release candidates");
   }
+  await verifyReleaseInventory(
+    dirname(manifestPath),
+    manifest.packages.map(({ tarball }) => tarball),
+  );
   for (const [index, record] of manifest.packages.entries()) {
     const definition = RELEASE_PACKAGES[index];
     const expectedTarball = `${definition.name
@@ -797,6 +881,7 @@ async function verifyPreparedManifest(manifestPath) {
       record.tarball !== expectedTarball ||
       !STABLE_SEMVER.test(record.version) ||
       record.publish !== (record.version === tagVersion) ||
+      !/^[0-9a-f]{64}$/u.test(record.sha256) ||
       typeof record.integrity !== "string" ||
       typeof record.shasum !== "string" ||
       !Array.isArray(record.files)
@@ -809,6 +894,7 @@ async function verifyPreparedManifest(manifestPath) {
     }
     const hashes = hashTarball(await readFile(tarball));
     if (
+      !safeEqual(hashes.sha256, record.sha256) ||
       !safeEqual(hashes.integrity, record.integrity) ||
       !safeEqual(hashes.shasum, record.shasum)
     ) {

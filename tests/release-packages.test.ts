@@ -1,4 +1,13 @@
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -10,7 +19,31 @@ import {
   parseArguments,
   parsePnpmLockfileImporters,
   resolvedVersionSatisfies,
+  validatePackedTarball,
+  validateReleaseTag,
+  verifyReleaseInventory,
 } from "../scripts/release-packages.mjs";
+
+function git(root: string, ...arguments_: string[]) {
+  execFileSync("git", arguments_, { cwd: root, stdio: "ignore" });
+}
+
+function createTagRepository() {
+  const root = mkdtempSync(join(tmpdir(), "scheduler-release-tag-"));
+  git(root, "init", "-b", "main");
+  git(root, "config", "user.name", "Release Test");
+  git(root, "config", "user.email", "release-test@example.invalid");
+  writeFileSync(join(root, "receipt.txt"), "first\n");
+  git(root, "add", "receipt.txt");
+  git(root, "commit", "-m", "first");
+  git(root, "tag", "-a", "v0.1.0", "-m", "v0.1.0");
+  git(root, "update-ref", "refs/remotes/origin/main", "HEAD");
+  const commit = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim();
+  return { root, commit };
+}
 
 describe("release package metadata", () => {
   it("accepts npm's cross-platform argument separator", () => {
@@ -273,6 +306,100 @@ packages:
     expect(source).toMatch(
       /function runNpm\([\s\S]*?process\.platform === "win32" \? "npm\.cmd" : "npm"/u,
     );
+  });
+
+  it("rejects an unsigned release tag", () => {
+    const { root, commit } = createTagRepository();
+    try {
+      expect(() =>
+        validateReleaseTag({
+          root,
+          releaseTag: "v0.1.0",
+          expectedReleaseCommit: commit,
+        }),
+      ).toThrow(/signature/u);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a release tag that no longer identifies the checkout", () => {
+    const { root } = createTagRepository();
+    try {
+      writeFileSync(join(root, "receipt.txt"), "second\n");
+      git(root, "add", "receipt.txt");
+      git(root, "commit", "-m", "second");
+      git(root, "update-ref", "refs/remotes/origin/main", "HEAD");
+      const commit = execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: root,
+        encoding: "utf8",
+      }).trim();
+      expect(() =>
+        validateReleaseTag({
+          root,
+          releaseTag: "v0.1.0",
+          expectedReleaseCommit: commit,
+        }),
+      ).toThrow(/must match/u);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a changed packed manifest", async () => {
+    const root = mkdtempSync(join(tmpdir(), "scheduler-packed-manifest-"));
+    const packageDirectory = join(root, "package");
+    const tarball = join(root, "scheduler.tgz");
+    const expected = {
+      name: "@pegma/scheduler",
+      version: "0.1.0",
+      dependencies: { "@pegma/spine": "0.1.2" },
+    };
+    try {
+      mkdirSync(packageDirectory);
+      writeFileSync(
+        join(packageDirectory, "package.json"),
+        `${JSON.stringify({
+          ...expected,
+          dependencies: { "@pegma/spine": "^0.1.2" },
+        })}\n`,
+      );
+      writeFileSync(join(packageDirectory, "README.md"), "# Package\n");
+      writeFileSync(join(packageDirectory, "LICENSE"), "MIT\n");
+      execFileSync("tar", ["-czf", tarball, "-C", root, "package"], {
+        stdio: "ignore",
+      });
+      await expect(validatePackedTarball(tarball, expected)).rejects.toThrow(
+        /pins must match/u,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects extra release output entries", async () => {
+    const root = mkdtempSync(join(tmpdir(), "scheduler-release-inventory-"));
+    const tarballs = [
+      "pegma-scheduler-0.1.0.tgz",
+      "pegma-scheduler-cloudflare-0.1.0.tgz",
+    ];
+    try {
+      for (const name of ["package-manifest.json", ...tarballs]) {
+        writeFileSync(join(root, name), "prepared\n");
+      }
+      await expect(
+        verifyReleaseInventory(root, tarballs),
+      ).resolves.toBeUndefined();
+      writeFileSync(
+        join(root, ".npmrc"),
+        "registry=https://registry.npmjs.org/\n",
+      );
+      await expect(verifyReleaseInventory(root, tarballs)).rejects.toThrow(
+        /inventory/u,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("skips a byte-identical existing version", () => {
