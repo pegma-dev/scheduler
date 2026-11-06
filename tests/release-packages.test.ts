@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -377,6 +378,38 @@ packages:
     }
   });
 
+  it("rejects a packed archive with a changed header", async () => {
+    const root = mkdtempSync(join(tmpdir(), "scheduler-packed-header-"));
+    const packageDirectory = join(root, "package");
+    const tarball = join(root, "scheduler.tgz");
+    const expected = {
+      name: "@pegma/scheduler",
+      version: "0.1.0",
+      dependencies: { "@pegma/spine": "0.1.2" },
+      exports: { ".": "./dist/index.js" },
+    };
+    try {
+      mkdirSync(packageDirectory);
+      writeFileSync(
+        join(packageDirectory, "package.json"),
+        `${JSON.stringify(expected)}\n`,
+      );
+      writeFileSync(join(packageDirectory, "README.md"), "# Package\n");
+      writeFileSync(join(packageDirectory, "LICENSE"), "MIT\n");
+      execFileSync("tar", ["-czf", tarball, "-C", root, "package"], {
+        stdio: "ignore",
+      });
+      const archive = gunzipSync(readFileSync(tarball));
+      archive[0] = archive[0] === 112 ? 113 : 112;
+      writeFileSync(tarball, gzipSync(archive));
+      await expect(validatePackedTarball(tarball, expected)).rejects.toThrow(
+        /header checksum/u,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects extra release output entries", async () => {
     const root = mkdtempSync(join(tmpdir(), "scheduler-release-inventory-"));
     const tarballs = [
@@ -390,6 +423,9 @@ packages:
       await expect(
         verifyReleaseInventory(root, tarballs),
       ).resolves.toBeUndefined();
+      await expect(
+        verifyReleaseInventory(root, ["../pegma-scheduler-0.1.0.tgz"]),
+      ).rejects.toThrow(/plain visible filenames/u);
       writeFileSync(
         join(root, ".npmrc"),
         "registry=https://registry.npmjs.org/\n",

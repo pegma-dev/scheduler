@@ -49,6 +49,12 @@ describe("publish workflow", () => {
     const publish = job("publish");
     expect(smoke).toContain("needs: prepare");
     expect(smoke).toContain("permissions:\n      contents: read");
+    expect(smoke).toContain(
+      "MANIFEST_DIGEST: ${{ needs.prepare.outputs.manifest_digest }}",
+    );
+    expect(smoke).toContain("record.imports");
+    expect(smoke).toContain("--registry https://registry.npmjs.org/");
+    expect(smoke).not.toContain("< <(node");
     expect(publish).toContain("needs: [prepare, smoke]");
     expect(publish).not.toContain("actions/checkout");
     expect(publish).not.toContain("scripts/release-packages.mjs");
@@ -61,9 +67,23 @@ describe("publish workflow", () => {
       "manifest_digest: ${{ steps.manifest.outputs.digest }}",
     );
     expect(prepare).toContain("include-hidden-files: false");
+    expect(prepare).toMatch(
+      /Record the package manifest digest[\s\S]*?set -euo pipefail[\s\S]*?\^\[0-9a-f\]\{64\}\$/u,
+    );
     expect(workflow).toContain(
       "MANIFEST_DIGEST: ${{ needs.prepare.outputs.manifest_digest }}",
     );
+  });
+
+  it("revalidates the complete package digest set before publication", () => {
+    const publish = job("publish");
+    expect(publish).toContain('createHash("sha256")');
+    expect(publish).toContain('createHash("sha1")');
+    expect(publish).toContain('createHash("sha512")');
+    expect(publish).toContain("timingSafeEqual");
+    expect(publish).toContain("record.files");
+    expect(publish).toContain("record.imports");
+    expect(publish).toContain("record.directory");
   });
 
   it("keeps step and runner expressions out of job environments", () => {

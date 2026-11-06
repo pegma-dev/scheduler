@@ -105,7 +105,11 @@ jobs:
       - name: Record the package manifest digest
         id: manifest
         shell: bash
-        run: echo "digest=$(sha256sum .release/package-manifest.json | cut -d ' ' -f 1)" >> "${GITHUB_OUTPUT}"
+        run: |
+          set -euo pipefail
+          digest="$(sha256sum .release/package-manifest.json | cut -d ' ' -f 1)"
+          [[ "${digest}" =~ ^[0-9a-f]{64}$ ]]
+          printf 'digest=%s\n' "${digest}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload the prepared release
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
@@ -141,24 +145,52 @@ jobs:
 
       - name: Install and import the prepared packages
         shell: bash
+        env:
+          MANIFEST_DIGEST: ${{ needs.prepare.outputs.manifest_digest }}
         run: |
           set -euo pipefail
           smoke_dir="$(mktemp -d "${RUNNER_TEMP}/release-smoke.XXXXXX")"
           trap 'rm -rf "${smoke_dir}"' EXIT
           printf '%s\n' '{"name":"release-smoke","private":true,"type":"module"}' > "${smoke_dir}/package.json"
-          mapfile -t tarballs < <(node --input-type=module <<'NODE'
+          release_manifest="${GITHUB_WORKSPACE}/.release/package-manifest.json"
+          tarball_list="${RUNNER_TEMP}/release-tarballs"
+          export RELEASE_MANIFEST="${release_manifest}"
+          node --input-type=module > "${tarball_list}" <<'NODE'
+          import { createHash, timingSafeEqual } from "node:crypto";
           import { readFile } from "node:fs/promises";
-          import { resolve } from "node:path";
-          const directory = resolve(".release");
-          const manifest = JSON.parse(await readFile(resolve(directory, "package-manifest.json"), "utf8"));
-          for (const record of manifest.packages) console.log(resolve(directory, record.tarball));
+          import { dirname, resolve } from "node:path";
+          const equal = (left, right) => {
+            const a = Buffer.from(left);
+            const b = Buffer.from(right);
+            return a.length === b.length && timingSafeEqual(a, b);
+          };
+          const manifestBytes = await readFile(process.env.RELEASE_MANIFEST);
+          const digest = createHash("sha256").update(manifestBytes).digest("hex");
+          if (!equal(digest, process.env.MANIFEST_DIGEST ?? "")) throw new Error("package manifest digest does not match");
+          const manifest = JSON.parse(manifestBytes.toString("utf8"));
+          if (!Array.isArray(manifest.packages) || manifest.packages.length === 0) throw new Error("package manifest inventory is invalid");
+          for (const record of manifest.packages) {
+            if (!Array.isArray(record.imports) || record.imports.length === 0) throw new Error(`${record.name} import inventory is invalid`);
+            const tarball = resolve(dirname(process.env.RELEASE_MANIFEST), record.tarball);
+            const bytes = await readFile(tarball);
+            const sha256 = createHash("sha256").update(bytes).digest("hex");
+            const integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
+            if (!equal(sha256, record.sha256) || !equal(integrity, record.integrity)) throw new Error(`${record.name} package digest does not match`);
+            console.log(tarball);
+          }
           NODE
-          )
+          mapfile -t tarballs < "${tarball_list}"
+          [[ "${#tarballs[@]}" -gt 0 ]]
           npm install --prefix "${smoke_dir}" --ignore-scripts --no-audit --no-fund \
-            --package-lock=false "${tarballs[@]}"
+            --package-lock=false --registry https://registry.npmjs.org/ "${tarballs[@]}"
           cd "${smoke_dir}"
-          node --input-type=module --eval \
-            'await import("@pegma/scheduler"); await import("@pegma/scheduler-cloudflare");'
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const manifest = JSON.parse(await readFile(process.env.RELEASE_MANIFEST, "utf8"));
+          for (const record of manifest.packages) {
+            for (const specifier of record.imports) await import(specifier);
+          }
+          NODE
 
   publish:
     needs: [prepare, smoke]
@@ -253,16 +285,22 @@ jobs:
           if (!equal(digest, process.env.MANIFEST_DIGEST ?? "")) fail("package manifest digest does not match");
           const manifest = JSON.parse(manifestBytes.toString("utf8"));
           const names = ["@pegma/scheduler", "@pegma/scheduler-cloudflare"];
-          if (manifest.schemaVersion !== 1 || manifest.gitCommit !== process.env.RELEASE_COMMIT ||
+          const releaseCommit = (process.env.RELEASE_COMMIT ?? "").toLowerCase();
+          if (manifest.schemaVersion !== 1 || manifest.gitCommit !== releaseCommit ||
               manifest.releaseTag !== process.env.RELEASE_TAG || !Array.isArray(manifest.packages) ||
               JSON.stringify(manifest.packages.map(({ name }) => name)) !== JSON.stringify(names)) {
             fail("package manifest inventory is invalid");
           }
           const expectedFiles = ["package-manifest.json"];
+          const directories = ["scheduler", "scheduler-cloudflare"];
           for (const [index, record] of manifest.packages.entries()) {
             const expectedTarball = `${names[index].slice(1).replace("/", "-")}-${record.version}.tgz`;
-            if (record.tarball !== expectedTarball || record.publish !== (record.version === manifest.releaseTag.slice(1)) ||
-                !/^[0-9a-f]{64}$/.test(record.sha256) || !/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(record.integrity)) {
+            if (record.directory !== directories[index] || record.tarball !== expectedTarball ||
+                !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(record.version) ||
+                record.publish !== (record.version === manifest.releaseTag.slice(1)) ||
+                !/^[0-9a-f]{64}$/.test(record.sha256) || !/^[0-9a-f]{40}$/.test(record.shasum) ||
+                !/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(record.integrity) ||
+                !Array.isArray(record.files) || !Array.isArray(record.imports) || record.imports.length === 0) {
               fail(`${record.name} package metadata is invalid`);
             }
             expectedFiles.push(record.tarball);
@@ -281,8 +319,10 @@ jobs:
             const tarball = resolve(releaseDirectory, record.tarball);
             const bytes = await readFile(tarball);
             const sha256 = createHash("sha256").update(bytes).digest("hex");
+            const shasum = createHash("sha1").update(bytes).digest("hex");
             const integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
-            if (!equal(sha256, record.sha256) || !equal(integrity, record.integrity)) {
+            if (!equal(sha256, record.sha256) || !equal(shasum, record.shasum) ||
+                !equal(integrity, record.integrity)) {
               fail(`${record.name} package digest does not match`);
             }
           }
